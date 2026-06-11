@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { Landmark, Percent, ShieldCheck, ChevronRight, Sparkles, Repeat, CheckCircle2 } from 'lucide-react'
+import { Landmark, Percent, ShieldCheck, ChevronRight, Sparkles, Repeat, CheckCircle2, Coins } from 'lucide-react'
 import { Card, CardHeader, Button } from '../components/ui'
 import { paymentBatches, invoices, recurringSchedules, supplierById } from '../data'
-import { fmtMoney, fmtDate, cls, daysOverdue } from '../utils'
+import { fmtMoney, fmtDate, fmtGBP, toGBP, cls, daysOverdue } from '../utils'
 import { useEntity } from '../context'
 
 const statusMap = {
@@ -156,6 +156,48 @@ export function Payments() {
             </p>
           )}
         </div>
+      </Card>
+
+      {/* FX exposure — AI cash forecast by currency */}
+      <Card>
+        <CardHeader
+          title="FX exposure — upcoming outflow by currency"
+          subtitle="AI forecast over open payables · hedge or net before the next payment runs"
+          action={
+            <span className="flex items-center gap-1 rounded-full bg-info-soft px-2.5 py-1 text-[11px] font-medium text-secondary">
+              <Sparkles size={11} aria-hidden="true" /> Aprio AI
+            </span>
+          }
+        />
+        <div className="grid gap-3 p-5 pt-2 sm:grid-cols-2 lg:grid-cols-4">
+          {Object.entries(
+            invoices
+              .filter((i) => i.status !== 'paid' && i.status !== 'rejected')
+              .reduce<Record<string, number>>((acc, i) => {
+                acc[i.currency] = (acc[i.currency] ?? 0) + i.amount
+                return acc
+              }, {}),
+          )
+            .map(([ccy, amt]) => ({ ccy, amt, gbp: toGBP(amt, ccy) }))
+            .sort((a, b) => b.gbp - a.gbp)
+            .map(({ ccy, amt, gbp }) => (
+              <div key={ccy} className="rounded-lg border border-line bg-canvas p-3.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-[13px] font-semibold text-ink">{ccy}</span>
+                  <Coins size={14} className="text-ink-faint" aria-hidden="true" />
+                </div>
+                <p className="tabular mt-1.5 font-mono text-base font-semibold text-ink">
+                  {fmtMoney(amt, ccy)}
+                </p>
+                <p className="text-[11px] text-ink-faint">≈ {fmtGBP(gbp)}</p>
+              </div>
+            ))}
+        </div>
+        <p className="px-5 pb-4 text-[11px] text-ink-faint">
+          Non-GBP exposure settles from entity local accounts where balances allow; the
+          remainder routes via Wise multi-currency batch at spot. Rates locked at booking for
+          the month-end close.
+        </p>
       </Card>
 
       {/* Upcoming runs */}

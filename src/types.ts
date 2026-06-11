@@ -263,6 +263,57 @@ export interface AppNotification {
   read: boolean
 }
 
+export interface CostCenterBudget {
+  id: string
+  costCenter: string
+  owner: string
+  fyBudgetGBP: number
+  note?: string
+}
+
+export type ContractType = 'MSA' | 'Rate card' | 'SDS' | 'SOW' | 'NDA'
+
+export interface RateCardLine {
+  role: string
+  rate: number
+  unit: POUnit
+  currency: string
+}
+
+export interface Contract {
+  id: string
+  supplierId: string
+  type: ContractType
+  title: string
+  effective: string
+  expiry?: string
+  status: 'active' | 'expiring' | 'expired' | 'missing'
+  rateCard?: RateCardLine[]
+  note?: string
+}
+
+export type PortalRole =
+  | 'Admin'
+  | 'AP Clerk'
+  | 'AP Manager'
+  | 'HR'
+  | 'Line Manager'
+  | 'Budget Owner'
+  | 'Finance Head'
+  | 'CEO'
+  | 'Auditor'
+
+export interface PortalUser {
+  id: string
+  name: string
+  email: string
+  role: PortalRole
+  entityIds: string[] | 'all'
+  status: 'active' | 'invited' | 'deactivated'
+  lastActive?: string
+  delegation?: { to: string; from: string; until: string }
+}
+
 export type Page =
   | 'dashboard'
   | 'invoices'
@@ -277,8 +328,11 @@ export type Page =
   | 'suppliers'
   | 'clientpos'
   | 'assurance'
+  | 'budgets'
+  | 'contracts'
   | 'compliance'
   | 'entities'
+  | 'users'
   | 'admin'
   | 'reports'
 

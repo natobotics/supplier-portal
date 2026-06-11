@@ -17,6 +17,9 @@ import {
   Clock3,
   ReceiptText,
   UserPlus,
+  PiggyBank,
+  FileSignature,
+  Users,
 } from 'lucide-react'
 import type { Page } from '../types'
 import { invoices } from '../data'
@@ -55,6 +58,7 @@ const groups: Array<{ header?: string; items: NavItem[] }> = [
     header: 'Finance',
     items: [
       { id: 'clientpos', label: 'Client POs', icon: Briefcase },
+      { id: 'budgets', label: 'Budgets', icon: PiggyBank },
       { id: 'assurance', label: 'Month-end', icon: ClipboardCheck },
       { id: 'reports', label: 'Reports', icon: BarChart3 },
     ],
@@ -63,8 +67,10 @@ const groups: Array<{ header?: string; items: NavItem[] }> = [
     header: 'Administration',
     items: [
       { id: 'suppliers', label: 'Suppliers', icon: Building2 },
+      { id: 'contracts', label: 'Contracts', icon: FileSignature },
       { id: 'compliance', label: 'IR35 & compliance', icon: ShieldCheck },
       { id: 'entities', label: 'Entities', icon: Globe },
+      { id: 'users', label: 'Users & roles', icon: Users },
       { id: 'admin', label: 'Admin console', icon: Settings },
     ],
   },

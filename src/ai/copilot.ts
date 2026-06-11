@@ -4,8 +4,16 @@
 // passing the AP subledger as tool results. The local engine below answers
 // the same questions deterministically so the demo works offline.
 
-import { invoices, purchaseOrders, supplierById, suppliers } from '../data'
-import { fmtMoney, fmtCompact, daysOverdue, fmtDate } from '../utils'
+import {
+  contracts,
+  costCenterBudgets,
+  invoices,
+  portalUsers,
+  purchaseOrders,
+  supplierById,
+  suppliers,
+} from '../data'
+import { fmtMoney, fmtCompact, fmtGBP, toGBP, daysOverdue, daysUntil, fmtDate } from '../utils'
 
 export interface CopilotMessage {
   role: 'user' | 'assistant'
@@ -101,6 +109,99 @@ const answers: Array<{ match: RegExp; reply: () => string }> = [
     },
   },
   {
+    match: /budget|burn|cost cent/i,
+    reply: () => {
+      const rows = costCenterBudgets.map((b) => {
+        const internal = b.costCenter.startsWith('CC-600')
+        const pos = purchaseOrders.filter((p) => p.costCenter === b.costCenter)
+        const committed = internal
+          ? invoices
+              .filter((i) => i.costType === 'internal')
+              .reduce((s, i) => s + toGBP(i.amount, i.currency), 0)
+          : pos.reduce((s, p) => s + toGBP(p.notToExceed, supplierById(p.supplierId).currency), 0)
+        const actual = internal
+          ? committed
+          : pos.reduce((s, p) => s + toGBP(p.billedToDate, supplierById(p.supplierId).currency), 0)
+        const burn = Math.round((committed / b.fyBudgetGBP) * 100)
+        return { b, committed, actual, burn, internal }
+      })
+      const lines = rows.map(({ b, committed, actual, burn, internal }) =>
+        internal
+          ? `- **${b.costCenter}** — budget ${fmtGBP(b.fyBudgetGBP)} · internal spend ${fmtGBP(actual)} (${burn}% burn)`
+          : `- **${b.costCenter}** — budget ${fmtGBP(b.fyBudgetGBP)} · committed ${fmtGBP(committed)} · billed ${fmtGBP(actual)} (${burn}% burn)`,
+      )
+      const warnings = rows
+        .filter((r) => r.burn >= 85)
+        .map(({ b, committed, burn }) => {
+          const headroom = b.fyBudgetGBP - committed
+          return headroom >= 0
+            ? `Warning: **${b.costCenter}** is at ${burn}% of its FY budget — only ${fmtGBP(headroom)} of headroom left (owner: ${b.owner}).`
+            : `Warning: **${b.costCenter}** is over its FY budget by ${fmtGBP(-headroom)} at ${burn}% burn (owner: ${b.owner}).`
+        })
+      return `**Cost-centre burn vs FY budget** (group figures in GBP):\n\n${lines.join('\n')}\n\n${
+        warnings.length ? `${warnings.join('\n')}\n\n` : ''
+      }Recommendation: freeze new commitments on the flagged centres and have the owners re-forecast H2 with Finance before the next PO is raised.`
+    },
+  },
+  {
+    match: /contract|rate card|expir/i,
+    reply: () => {
+      const expiring = contracts.filter(
+        (c) => c.expiry && daysUntil(c.expiry) >= 0 && daysUntil(c.expiry) <= 60,
+      )
+      const missing = contracts.filter((c) => c.status === 'missing')
+      const inv = invoices.find((i) => i.number === 'RP-2026-013')!
+      const card = contracts.find(
+        (c) => c.supplierId === inv.supplierId && c.type === 'Rate card' && c.rateCard,
+      )!
+      const billed = inv.timesheet!.rate
+      const contracted = card.rateCard![0].rate
+      const pct = (((billed - contracted) / contracted) * 100).toFixed(1)
+      const expLines = expiring.map(
+        (c) =>
+          `- **${supplierById(c.supplierId).name}** — ${c.title} expires ${fmtDate(c.expiry!)} (${daysUntil(c.expiry!)} days)${c.note ? ` — ${c.note.split(' — ')[0].toLowerCase()}` : ''}`,
+      )
+      const missLines = missing.map(
+        (c) =>
+          `- **${supplierById(c.supplierId).name}** — ${c.type} missing${c.note ? `: ${c.note}` : ''}`,
+      )
+      return `**Expiring within 60 days:**\n\n${expLines.join('\n')}\n\n**Missing documents:**\n\n${missLines.join(
+        '\n',
+      )}\n\n**Rate guard:** ${inv.number} billed ${fmtMoney(billed, inv.currency)}/hr against the contracted ${fmtMoney(contracted, card.rateCard![0].currency)}/hr on the ${supplierById(inv.supplierId).name} rate card (+${pct}%) — the supplier cites out-of-hours work, but the rate card has no uplift clause.\n\nRecommendation: keep ${inv.number} on hold, then either renegotiate the line or amend the rate card to add an uplift clause before paying.`
+    },
+  },
+  {
+    match: /delegat|user|who approv/i,
+    reply: () => {
+      const scope = (ids: string[] | 'all') =>
+        ids === 'all'
+          ? 'all entities'
+          : ids.length === 1
+            ? ids[0].split('-')[1].toUpperCase()
+            : `${ids.length} entities (${ids.map((e) => e.split('-')[1].toUpperCase()).join(', ')})`
+      const delegating = portalUsers.filter((u) => u.delegation && u.status === 'active')
+      const heads = portalUsers.filter((u) => u.role === 'Finance Head')
+      const invited = portalUsers.filter((u) => u.status === 'invited')
+      const delLines = delegating.map(
+        (u) =>
+          `- **${u.name}** (${u.role}) → ${u.delegation!.to} until ${fmtDate(u.delegation!.until)} — anything at the ${u.role} approval step routes to ${u.delegation!.to}'s queue meanwhile`,
+      )
+      const headLines = heads.map(
+        (u) =>
+          `- **${u.name}** — ${scope(u.entityIds)}${u.status === 'invited' ? ' · invited, not active yet' : ''}`,
+      )
+      const inviteLines = invited.map(
+        (u) =>
+          `- **${u.name}** — ${u.role === 'Auditor' ? 'read-only auditor access' : u.role} (${scope(u.entityIds)})`,
+      )
+      return `**Active delegation:**\n\n${delLines.join('\n')}\n\n**Finance Head coverage:**\n\n${headLines.join(
+        '\n',
+      )}\n\n**Pending invites:**\n\n${inviteLines.join(
+        '\n',
+      )}\n\nNote: HR-routed invoices land with Marta Kowalska until the delegation lapses, and India has no active Finance Head until Anita Rao accepts her invite — chase both before month-end approvals pile up.`
+    },
+  },
+  {
     match: /supplier|spend/i,
     reply: () => {
       const top = [...suppliers].sort((a, b) => b.ytdSpend - a.ytdSpend).slice(0, 5)
@@ -113,14 +214,52 @@ const answers: Array<{ match: RegExp; reply: () => string }> = [
   },
 ]
 
+// Copilot actions — approve/hold from chat with an explicit confirmation round-trip.
+// In production these call the same mutation API as the UI buttons and are
+// audit-logged under the chatting user's identity.
+const actionRules: Array<{ match: RegExp; reply: (m: RegExpMatchArray) => string }> = [
+  {
+    match: /^confirm\s+approve\s+([A-Z]{1,4}[\w/-]*-[\w-]+)/i,
+    reply: (m) => {
+      const inv = invoices.find((i) => i.number.toLowerCase() === m[1].toLowerCase())
+      if (!inv) return `I can't find invoice **${m[1]}**. Check the number and try again.`
+      const step = inv.approvals.findIndex((a) => a.status === 'pending') + 1
+      return `Done — **${inv.number}** approved at step ${step} of 4 as Sarah Chen.\n\nRecorded in the audit log (kind: approval, source: copilot). The invoice moves to ${
+        step >= 4 ? 'the next payment run' : `step ${step + 1} — ${inv.approvals[step]?.approver ?? 'next approver'}`
+      }.`
+    },
+  },
+  {
+    match: /^(?:approve|hold)\s+([A-Z]{1,4}[\w/-]*-[\w-]+)/i,
+    reply: (m) => {
+      const inv = invoices.find((i) => i.number.toLowerCase() === m[1].toLowerCase())
+      if (!inv) return `I can't find invoice **${m[1]}**. Check the number and try again.`
+      const s = supplierById(inv.supplierId)
+      const pending = inv.approvals.find((a) => a.status === 'pending')
+      if (!pending)
+        return `**${inv.number}** has no pending approval step — current status: ${inv.status}.`
+      const flags = inv.anomalies.length
+        ? `\n\nHeads up: this invoice carries ${inv.anomalies.length} anomaly flag(s) — ${inv.anomalies
+            .map((a) => a.type.replace('_', ' '))
+            .join(', ')}.`
+        : ''
+      return `**${inv.number}** — ${s.name}, ${fmtMoney(inv.amount, inv.currency)}, waiting on ${pending.approver} (${pending.role}).${flags}\n\nTo execute, reply: **confirm approve ${inv.number}**\n\nActions from chat are recorded against your user in the audit log.`
+    },
+  },
+]
+
 export function answer(question: string): string {
+  for (const a of actionRules) {
+    const m = question.trim().match(a.match)
+    if (m) return a.reply(m)
+  }
   for (const a of answers) if (a.match.test(question)) return a.reply()
-  return `I can answer questions about your AP data — try:\n\n- "Any fraud risks right now?"\n- "What's due this week?"\n- "Show me possible duplicates"\n- "How much is left on each PO?"\n- "What discounts can we capture?"\n- "Why did DPO change?"`
+  return `I can answer questions about your AP data — try:\n\n- "Any fraud risks right now?"\n- "What's due this week?"\n- "Show me possible duplicates"\n- "How much is left on each PO?"\n- "Any budgets close to the limit?"\n- "Which contracts are expiring soon?"\n- "Who approves HR invoices this week?"\n- "What discounts can we capture?"`
 }
 
 export const suggestedPrompts = [
   'Any fraud risks right now?',
   "What's due this week?",
   'Show me possible duplicates',
-  'How much is left on each PO?',
+  'Any budgets close to the limit?',
 ]

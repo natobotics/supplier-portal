@@ -17,6 +17,9 @@ import { Timesheets } from './pages/Timesheets'
 import { Statements } from './pages/Statements'
 import { Onboarding } from './pages/Onboarding'
 import { ClientPOs } from './pages/ClientPOs'
+import { Budgets } from './pages/Budgets'
+import { Contracts } from './pages/Contracts'
+import { Users } from './pages/Users'
 import { Assurance } from './pages/Assurance'
 import { Compliance } from './pages/Compliance'
 import { Entities } from './pages/Entities'
@@ -37,6 +40,9 @@ const titles: Record<Page, string> = {
   payments: 'Payments',
   suppliers: 'Suppliers',
   clientpos: 'Client purchase orders',
+  budgets: 'Budgets',
+  contracts: 'Contracts',
+  users: 'Users & roles',
   assurance: 'Month-end assurance',
   compliance: 'IR35 & compliance',
   entities: 'Entities',
@@ -97,6 +103,12 @@ export default function App() {
             <Suppliers />
           ) : page === 'clientpos' ? (
             <ClientPOs />
+          ) : page === 'budgets' ? (
+            <Budgets />
+          ) : page === 'contracts' ? (
+            <Contracts />
+          ) : page === 'users' ? (
+            <Users />
           ) : page === 'assurance' ? (
             <Assurance />
           ) : page === 'compliance' ? (

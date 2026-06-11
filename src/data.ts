@@ -2,6 +2,7 @@ import type {
   Supplier, PurchaseOrder, Invoice, PaymentBatch, Activity, ApprovalStep,
   Entity, ClientPO, IR35Info, RecurringSchedule, AuditEvent, AdminConfig,
   TimesheetWeek, OnboardingCase, OnboardingStep, AppNotification,
+  CostCenterBudget, Contract, PortalUser,
 } from './types'
 import { PEOPLE } from './types'
 
@@ -861,6 +862,42 @@ export const notifications: AppNotification[] = [
   { id: 'ntf-08', ts: '2026-06-09 15:45', audience: 'supplier', supplierId: 'sup-08', title: 'Timesheet approved', body: 'Week of Jun 1 (36.0 hrs) approved by Aisha Bello — draft invoice ready to submit.', kind: 'timesheet', read: true },
   { id: 'ntf-09', ts: '2026-06-09 10:00', audience: 'internal', title: 'CEO approval pending', body: 'SNM-2026-06 (£8,400) at step 4 of 4 — discount deadline Jun 11.', kind: 'approval', read: true },
   { id: 'ntf-10', ts: '2026-06-08 09:15', audience: 'supplier', supplierId: 'sup-04', title: 'Invoice held', body: 'CSA-2026-118 cannot be paid until your W-9 is on file. Upload via onboarding.', kind: 'compliance', read: true },
+]
+
+export const costCenterBudgets: CostCenterBudget[] = [
+  { id: 'bud-01', costCenter: 'CC-110 · Talent Acquisition', owner: PEOPLE.hr, fyBudgetGBP: 250000 },
+  { id: 'bud-02', costCenter: 'CC-310 · Network Ops', owner: PEOPLE.engManager, fyBudgetGBP: 150000 },
+  { id: 'bud-03', costCenter: 'CC-320 · Cloud Platform', owner: PEOPLE.engManager, fyBudgetGBP: 120000 },
+  { id: 'bud-04', costCenter: 'CC-410 · IT Security', owner: PEOPLE.serviceManager, fyBudgetGBP: 130000, note: 'Includes managed SOC FY26 contract' },
+  { id: 'bud-05', costCenter: 'CC-600 · IT Operations', owner: PEOPLE.engManager, fyBudgetGBP: 80000, note: 'Internal costs — hardware, cloud, software' },
+]
+
+export const contracts: Contract[] = [
+  { id: 'ctr-01', supplierId: 'sup-01', type: 'MSA', title: 'Master services agreement — recruitment', effective: '2023-04-12', expiry: '2027-04-11', status: 'active' },
+  { id: 'ctr-02', supplierId: 'sup-01', type: 'Rate card', title: 'Contract recruiter rate card FY26', effective: '2026-04-01', expiry: '2027-03-31', status: 'active', rateCard: [{ role: 'Contract recruiter (monthly)', rate: 9800, unit: 'month', currency: 'GBP' }] },
+  { id: 'ctr-03', supplierId: 'sup-03', type: 'MSA', title: 'Executive search agreement', effective: '2024-02-14', expiry: '2026-07-15', status: 'expiring', note: 'Renewal discussion not started — 34 days to expiry' },
+  { id: 'ctr-04', supplierId: 'sup-05', type: 'Rate card', title: 'Network engineering rate card', effective: '2026-04-01', expiry: '2026-09-30', status: 'active', rateCard: [{ role: 'Network engineer (hourly)', rate: 95, unit: 'hour', currency: 'GBP' }], note: 'No out-of-hours uplift clause' },
+  { id: 'ctr-05', supplierId: 'sup-05', type: 'SDS', title: 'IR35 status determination — outside', effective: '2026-04-01', expiry: '2026-12-31', status: 'active' },
+  { id: 'ctr-06', supplierId: 'sup-06', type: 'Rate card', title: 'Cloud engineering rate card', effective: '2026-03-15', expiry: '2026-08-31', status: 'active', rateCard: [{ role: 'Cloud engineer (hourly)', rate: 110, unit: 'hour', currency: 'EUR' }] },
+  { id: 'ctr-07', supplierId: 'sup-07', type: 'Rate card', title: 'DevOps day-rate agreement', effective: '2026-01-05', expiry: '2026-12-19', status: 'active', rateCard: [{ role: 'DevOps engineer (day)', rate: 760, unit: 'day', currency: 'EUR' }] },
+  { id: 'ctr-08', supplierId: 'sup-08', type: 'Rate card', title: 'Smart hands rate card — Frankfurt', effective: '2026-05-01', expiry: '2026-10-31', status: 'active', rateCard: [{ role: 'DC smart hands (hourly)', rate: 88, unit: 'hour', currency: 'SGD' }] },
+  { id: 'ctr-09', supplierId: 'sup-11', type: 'MSA', title: 'Managed SOC service agreement FY26', effective: '2026-01-01', expiry: '2026-12-31', status: 'active' },
+  { id: 'ctr-10', supplierId: 'sup-04', type: 'MSA', title: 'Staffing agreement', effective: '2026-05-21', status: 'missing', note: 'Signed copy never returned — chase before next placement' },
+  { id: 'ctr-11', supplierId: 'sup-09', type: 'SDS', title: 'IR35 status determination — pen-test engagement', effective: '2026-06-15', status: 'missing', note: 'Inside-IR35 PO-2026-0019 blocked until SDS on file' },
+]
+
+export const portalUsers: PortalUser[] = [
+  { id: 'usr-01', name: 'Sarah Chen', email: 'sarah.chen@nconsulting.ltd.uk', role: 'Admin', entityIds: 'all', status: 'active', lastActive: '2026-06-11 09:55' },
+  { id: 'usr-02', name: 'Priya Nair', email: 'priya.nair@nconsulting.ltd.uk', role: 'HR', entityIds: ['ent-uk'], status: 'active', lastActive: '2026-06-09 17:20', delegation: { to: 'Marta Kowalska', from: '2026-06-10', until: '2026-06-17' } },
+  { id: 'usr-03', name: 'Marta Kowalska', email: 'marta.kowalska@nconsulting.ltd.uk', role: 'HR', entityIds: ['ent-pl', 'ent-uk'], status: 'active', lastActive: '2026-06-11 08:40' },
+  { id: 'usr-04', name: 'James Holt', email: 'james.holt@nconsulting.ltd.uk', role: 'Line Manager', entityIds: ['ent-uk', 'ent-de', 'ent-es'], status: 'active', lastActive: '2026-06-11 09:10' },
+  { id: 'usr-05', name: 'Aisha Bello', email: 'aisha.bello@nconsulting.ltd.uk', role: 'Line Manager', entityIds: ['ent-sg', 'ent-nl', 'ent-ae'], status: 'active', lastActive: '2026-06-10 22:05' },
+  { id: 'usr-06', name: 'David Osei', email: 'david.osei@nconsulting.ltd.uk', role: 'Finance Head', entityIds: ['ent-uk', 'ent-us', 'ent-es', 'ent-nl', 'ent-pl', 'ent-ae', 'ent-se'], status: 'active', lastActive: '2026-06-11 09:30' },
+  { id: 'usr-07', name: 'Lukas Brandt', email: 'lukas.brandt@nconsulting.de', role: 'Finance Head', entityIds: ['ent-de'], status: 'active', lastActive: '2026-06-10 16:45' },
+  { id: 'usr-08', name: 'Anita Rao', email: 'anita.rao@ncons.in', role: 'Finance Head', entityIds: ['ent-in'], status: 'invited' },
+  { id: 'usr-09', name: 'Wei Lin Tan', email: 'weilin.tan@ncons.sg', role: 'Finance Head', entityIds: ['ent-sg'], status: 'active', lastActive: '2026-06-11 03:15' },
+  { id: 'usr-10', name: 'Ingrid Olsen', email: 'ingrid.olsen@nconsulting.ltd.uk', role: 'CEO', entityIds: 'all', status: 'active', lastActive: '2026-06-10 19:00' },
+  { id: 'usr-11', name: 'Hargreaves Audit LLP', email: 'engagements@hargreavesaudit.co.uk', role: 'Auditor', entityIds: ['ent-uk'], status: 'invited' },
 ]
 
 export const supplierById = (id: string) => suppliers.find((s) => s.id === id)!
