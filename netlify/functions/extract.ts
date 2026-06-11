@@ -4,58 +4,75 @@
 // body: { document_base64: string, media_type: 'application/pdf' | 'image/png' | 'image/jpeg',
 //         entity_country: string }
 // returns: structured extraction with per-field confidence + country compliance pre-check
+//
+// Uses structured outputs (output_config.format) — guaranteed schema-valid JSON.
+// Note: claude-fable-5 does not support forced tool_choice; structured outputs
+// are the supported way to constrain the response shape.
 
 import type { Handler } from '@netlify/functions'
 
 const MODEL = 'claude-fable-5'
 
-const EXTRACTION_TOOL = {
-  name: 'record_extraction',
-  description: 'Record the structured fields extracted from the invoice document.',
-  input_schema: {
-    type: 'object',
-    properties: {
-      supplier_name: { type: 'string' },
-      invoice_number: { type: 'string' },
-      issue_date: { type: 'string', description: 'ISO date' },
-      due_date: { type: 'string', description: 'ISO date' },
-      currency: { type: 'string', description: 'ISO 4217' },
-      total: { type: 'number' },
-      po_reference: { type: 'string' },
-      tax_id: { type: 'string', description: 'VAT/GST/TRN/GSTIN if printed' },
-      bank_account_hint: { type: 'string', description: 'last 4 digits of remit-to account' },
-      lines: {
-        type: 'array',
-        items: {
-          type: 'object',
-          properties: {
-            description: { type: 'string' },
-            qty: { type: 'number' },
-            unit_price: { type: 'number' },
-            amount: { type: 'number' },
-          },
-        },
-      },
-      field_confidence: {
+const SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    supplier_name: { type: 'string' },
+    invoice_number: { type: 'string' },
+    issue_date: { type: 'string', description: 'ISO date if printed, else empty string' },
+    due_date: { type: 'string', description: 'ISO date if printed, else empty string' },
+    currency: { type: 'string', description: 'ISO 4217' },
+    total: { type: 'number' },
+    po_reference: { type: 'string', description: 'PO number if printed, else empty string' },
+    tax_id: { type: 'string', description: 'VAT/GST/TRN/GSTIN if printed, else empty string' },
+    bank_account_hint: { type: 'string', description: 'last 4 digits of remit-to account, else empty string' },
+    lines: {
+      type: 'array',
+      items: {
         type: 'object',
-        description: 'confidence 0-1 per extracted field name',
-        additionalProperties: { type: 'number' },
-      },
-      country_document_checks: {
-        type: 'array',
-        description:
-          'Document-level mandates visible on the page for the processing country: sequential numbering, "Tax Invoice" label, HSN/SAC codes, reverse-charge wording — pass/fail/not_visible each.',
-        items: {
-          type: 'object',
-          properties: {
-            check: { type: 'string' },
-            result: { type: 'string', enum: ['pass', 'fail', 'not_visible'] },
-          },
+        additionalProperties: false,
+        properties: {
+          description: { type: 'string' },
+          qty: { type: 'number' },
+          unit_price: { type: 'number' },
+          amount: { type: 'number' },
         },
+        required: ['description', 'qty', 'unit_price', 'amount'],
       },
     },
-    required: ['supplier_name', 'invoice_number', 'total', 'currency', 'field_confidence'],
+    field_confidence: {
+      type: 'array',
+      description: 'confidence 0-1 per extracted field',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          field: { type: 'string' },
+          confidence: { type: 'number' },
+        },
+        required: ['field', 'confidence'],
+      },
+    },
+    country_document_checks: {
+      type: 'array',
+      description:
+        'Document-level mandates visible on the page for the processing country: sequential numbering, "Tax Invoice" label, HSN/SAC codes, reverse-charge wording.',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          check: { type: 'string' },
+          result: { type: 'string', enum: ['pass', 'fail', 'not_visible'] },
+        },
+        required: ['check', 'result'],
+      },
+    },
   },
+  required: [
+    'supplier_name', 'invoice_number', 'issue_date', 'due_date', 'currency',
+    'total', 'po_reference', 'tax_id', 'bank_account_hint', 'lines',
+    'field_confidence', 'country_document_checks',
+  ],
 }
 
 export const handler: Handler = async (event) => {
@@ -80,9 +97,8 @@ export const handler: Handler = async (event) => {
     },
     body: JSON.stringify({
       model: MODEL,
-      max_tokens: 2048,
-      tools: [EXTRACTION_TOOL],
-      tool_choice: { type: 'tool', name: 'record_extraction' },
+      max_tokens: 4096,
+      output_config: { format: { type: 'json_schema', schema: SCHEMA } },
       messages: [
         {
           role: 'user',
@@ -100,10 +116,10 @@ export const handler: Handler = async (event) => {
 
   if (!res.ok) return { statusCode: res.status, body: await res.text() }
   const data = await res.json()
-  const toolUse = data.content?.find((b: { type: string }) => b.type === 'tool_use')
+  const text = data.content?.find((b: { type: string }) => b.type === 'text')?.text ?? '{}'
   return {
     statusCode: 200,
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(toolUse?.input ?? {}),
+    body: text,
   }
 }
