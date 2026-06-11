@@ -5,6 +5,7 @@
 // Column names are snake_case in Postgres; map to the camelCase app types here
 // so no page component changes shape.
 
+import { useEffect, useState } from 'react'
 import { supabase, isLive } from './supabase'
 import type { Supplier, Entity, Invoice } from '../types'
 import {
@@ -14,6 +15,30 @@ import {
 } from '../data'
 
 export { isLive }
+
+// Render mock data immediately, swap in live rows when the fetch lands.
+// Keeps every page synchronous-looking during the cutover.
+function useLive<T>(fetcher: () => Promise<T[]>, fallback: T[]): T[] {
+  const [rows, setRows] = useState<T[]>(fallback)
+  useEffect(() => {
+    if (!isLive) return
+    let cancelled = false
+    fetcher()
+      .then((live) => {
+        if (!cancelled && live.length > 0) setRows(live)
+      })
+      .catch((err) => console.warn('Live fetch failed — staying on demo data:', err.message))
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  return rows
+}
+
+export const useSuppliers = () => useLive(fetchSuppliers, mockSuppliers)
+export const useEntities = () => useLive(fetchEntities, mockEntities)
+export const useInvoices = () => useLive(fetchInvoices, mockInvoices)
 
 export async function fetchEntities(): Promise<Entity[]> {
   if (!supabase) return mockEntities

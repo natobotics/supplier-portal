@@ -1,13 +1,16 @@
 import { useState } from 'react'
 import { Search, CheckCircle2, XCircle, Clock, UserPlus } from 'lucide-react'
 import { Card, RiskBadge, Button } from '../components/ui'
-import { suppliers, entityById } from '../data'
+import { entityById } from '../data'
 import { fmtMoney, fmtGBP, toGBP, convert, cls } from '../utils'
 import { useEntity } from '../context'
+import { useSuppliers, isLive } from '../lib/api'
+import type { Supplier } from '../types'
 
 export function Suppliers() {
   const { entity } = useEntity()
   const [q, setQ] = useState('')
+  const suppliers = useSuppliers()
 
   const scoped = entity === 'all' ? suppliers : suppliers.filter((s) => s.entityId === entity)
   const rows = scoped.filter(
@@ -16,7 +19,7 @@ export function Suppliers() {
       s.category.toLowerCase().includes(q.toLowerCase()),
   )
 
-  const compliance = (s: (typeof suppliers)[number]) => {
+  const compliance = (s: Supplier) => {
     const issues: string[] = []
     if (s.taxFormStatus !== 'verified') issues.push(`W-9 ${s.taxFormStatus}`)
     if (!s.bankVerified) issues.push('bank unverified')
@@ -50,9 +53,16 @@ export function Suppliers() {
             className="w-72 rounded-lg border border-line bg-surface py-2 pr-3 pl-9 text-sm text-ink placeholder:text-ink-faint focus:border-primary focus:outline-none"
           />
         </label>
-        <Button>
-          <UserPlus size={15} aria-hidden="true" /> Invite supplier
-        </Button>
+        <div className="flex items-center gap-2">
+          {isLive && (
+            <span className="flex items-center gap-1.5 rounded-full bg-accent-soft px-2.5 py-1 text-[11px] font-medium text-accent">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" /> Live — Supabase
+            </span>
+          )}
+          <Button>
+            <UserPlus size={15} aria-hidden="true" /> Invite supplier
+          </Button>
+        </div>
       </div>
 
       {/* Onboarding funnel */}
