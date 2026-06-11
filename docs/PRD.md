@@ -166,8 +166,13 @@ with role queues, payment batches with dual control, anomaly detection
 - Entity management: admin-managed in product (add/edit/deactivate).
 - Post-approval overrides: allowed for admins, reason required, audit-logged.
 
-## 9. Open questions
+## 9. Production stack (decided 2026-06-11)
 
-1. Reporting currency confirmed GBP? (assumed — group HQ is UK)
-2. Which accounting system is live per entity today? (drives integration order
-   — Xero assumed first)
+- Backend: **Supabase** — auth, Postgres, storage, row-level security.
+- Hosting: **Netlify** — frontend + serverless functions (Claude proxy).
+- AI: **Claude API**, model `claude-fable-5`, key server-side only.
+- Accounting systems in use: **QuickBooks, FreeAgent, Odoo/Zoho Books** (no
+  Xero). Integration order: FreeAgent (UK) → QuickBooks (US) → Zoho/Odoo.
+- Reporting currency: GBP (standing assumption, unchallenged).
+
+See docs/DEPLOYMENT.md for the cutover plan.

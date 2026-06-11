@@ -12,6 +12,7 @@ const steps = [
   'Matching supplier record…',
   'Coding line items to GL…',
   'Validating country compliance…',
+  'Checking contract terms & rate card…',
   'Running anomaly checks…',
   'Done — ready for review',
 ]
@@ -125,9 +126,12 @@ export function Capture({ onOpen }: { onOpen: (inv: Invoice) => void }) {
                 <Mail size={15} aria-hidden="true" />
               </span>
               <div>
-                <p className="text-[13px] font-medium text-ink">Email inbox</p>
-                <p className="font-mono text-[11px] text-ink-soft">ap@yourco.aprio.app</p>
-                <p className="mt-0.5 text-[11px] text-ink-faint">214 invoices captured in May</p>
+                <p className="text-[13px] font-medium text-ink">Email ingest — per entity</p>
+                <p className="font-mono text-[11px] text-ink-soft">ap-uk@ · ap-de@ · ap-us@ ncons.app</p>
+                <p className="mt-0.5 text-[11px] text-ink-faint">
+                  10 entity inboxes · Claude reads attachments, routes to the owning entity · 78
+                  invoices captured in May
+                </p>
               </div>
             </li>
             <li className="flex items-start gap-3 rounded-lg border border-line bg-canvas p-3.5">
