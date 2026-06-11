@@ -4,8 +4,8 @@
 // passing the AP subledger as tool results. The local engine below answers
 // the same questions deterministically so the demo works offline.
 
-import { invoices, supplierById, suppliers } from '../data'
-import { fmtMoney, daysOverdue, fmtDate } from '../utils'
+import { invoices, purchaseOrders, supplierById, suppliers } from '../data'
+import { fmtMoney, fmtCompact, daysOverdue, fmtDate } from '../utils'
 
 export interface CopilotMessage {
   role: 'user' | 'assistant'
@@ -24,7 +24,7 @@ const answers: Array<{ match: RegExp; reply: () => string }> = [
         .map((i) => {
           const s = supplierById(i.supplierId)
           const a = i.anomalies.find((x) => x.type === 'duplicate')!
-          return `**${i.number}** from ${s.name} (${fmtMoney(i.amount)}) looks like a duplicate.\n\n${a.message}\n\nRecommendation: hold this invoice and request a statement from the supplier before approving.`
+          return `**${i.number}** from ${s.name} (${fmtMoney(i.amount)}) looks like a duplicate.\n\n${a.message}\n\nRecommendation: keep ${i.number} on hold and reject it as a duplicate — the original was already paid. Ask the supplier to confirm before resubmitting anything for this period.`
         })
         .join('\n\n')
     },
@@ -40,7 +40,12 @@ const answers: Array<{ match: RegExp; reply: () => string }> = [
       const lines = soon.map(
         (i) => `- **${i.number}** · ${supplierById(i.supplierId).name} · ${fmtMoney(i.amount)} · due ${fmtDate(i.dueDate)}`,
       )
-      return `**Due within 7 days** (${soon.length} invoices, ${fmtMoney(soon.reduce((s, i) => s + i.amount, 0))}):\n\n${lines.join('\n')}\n\nAlso note: ${overdueList.length} invoices totalling ${fmtMoney(overdueList.reduce((s, i) => s + i.amount, 0))} are already past due — QC-88317 is the largest at ${fmtMoney(88600)}.`
+      let out = `**Due within 7 days** (${soon.length} invoices, ${fmtMoney(soon.reduce((s, i) => s + i.amount, 0))}):\n\n${lines.join('\n')}\n\nHeads-up: TB-0590 in that list is the suspected duplicate — keep it on hold rather than paying it.`
+      if (overdueList.length) {
+        const largest = overdueList.reduce((m, i) => (i.amount > m.amount ? i : m), overdueList[0])
+        out += `\n\nAlso note: ${overdueList.length} invoice${overdueList.length === 1 ? '' : 's'} totalling ${fmtMoney(overdueList.reduce((s, i) => s + i.amount, 0))} ${overdueList.length === 1 ? 'is' : 'are'} already past due — ${largest.number} is the largest at ${fmtMoney(largest.amount)}.`
+      }
+      return out
     },
   },
   {
@@ -58,7 +63,7 @@ const answers: Array<{ match: RegExp; reply: () => string }> = [
           (i) =>
             `- **${i.number}** (${supplierById(i.supplierId).name}): save ${fmtMoney(i.discount!.amount)} by paying before ${fmtDate(i.discount!.deadline)} — ${i.discount!.terms}`,
         )
-        .join('\n')}\n\nBoth exceed your 12% annualized hurdle rate, so paying early beats holding cash. Add them to the Jun 12 ACH run to capture both.`
+        .join('\n')}\n\nBoth windows close **today, Jun 11** — the scheduled BAT-061226 run goes out tomorrow and would miss them. Release a same-day ACH today or the ${fmtMoney(total)} is gone.`
     },
   },
   {
@@ -70,33 +75,52 @@ const answers: Array<{ match: RegExp; reply: () => string }> = [
           (i) =>
             `- **${i.number}** · ${supplierById(i.supplierId).name} · ${fmtMoney(i.amount)} · ${daysOverdue(i.dueDate)} days late`,
         )
-        .join('\n')}\n\nRoot cause on the two largest: QC-88317 is blocked on a receiving report (qty variance), BLM-30684 on a contract price escalation review. Both need action from operations, not AP.`
+        .join('\n')}\n\nRoot cause: PSS-1107 (PrimeStaff Solutions) came in without a PO, so Finance is holding it until HR raises a retroactive PO. Chase HR, not the supplier.`
+    },
+  },
+  {
+    match: /\bpo\b|purchase order|work order|balance|remaining/i,
+    reply: () => {
+      const openPOs = purchaseOrders.filter(
+        (p) => p.status === 'issued' || p.status === 'partially_billed',
+      )
+      const lines = openPOs.map((p) => {
+        const s = supplierById(p.supplierId)
+        const remaining = p.notToExceed - p.billedToDate
+        const pct = Math.round((p.billedToDate / p.notToExceed) * 100)
+        return `- **${p.number}** · ${s.name} · billed ${fmtMoney(p.billedToDate)} of ${fmtMoney(p.notToExceed)} (${pct}%) · ${fmtMoney(remaining)} remaining`
+      })
+      return `**Open PO balances:**\n\n${lines.join('\n')}\n\nWatch items: **PO-2026-0007** is 57% drawn with two more invoices in flight (RP-2026-014 captured, RP-2026-013 in exception) — at this burn rate it exhausts well before its Sep 30 end date. **PO-2026-0011** is tight too: the pending EM-2026-09 (${fmtMoney(9460)}) would leave just ${fmtMoney(33000 - 14300 - 9460)} for three more months of work.`
     },
   },
   {
     match: /dpo|cash/i,
-    reply: () =>
-      `**DPO is 34.2 days**, down from 36.8 last quarter.\n\nDriver: early-pay discount captures accelerated ~$240k of payments by an average of 18 days. That traded 2.6 days of DPO for ${fmtMoney(4146)} in discounts YTD — annualized return ≈ 36%, well above your cost of capital.\n\nIf cash gets tight, skipping non-discounted early payments would push DPO back to ~37 without losing any savings.`,
+    reply: () => {
+      const ytd = suppliers.reduce((s, x) => s + x.ytdSpend, 0)
+      return `**DPO is 28.4 days**, down from 31.2 last quarter.\n\nDriver: the freelance engineers all bill on Net 15, and their share of invoice volume grew this quarter — fast turnaround on those pulls the blended figure down. Total YTD spend is ${fmtCompact(ytd)} across ${suppliers.length} suppliers, so a handful of early payments moves the needle.\n\nIf cash gets tight, slow the non-discounted Net 30 payments (Helix, Stellar) back toward full terms — that recovers ~2 days of DPO without giving up the 2/10 discounts on TalentBridge and SecureNet.`
+    },
   },
   {
     match: /supplier|spend/i,
     reply: () => {
       const top = [...suppliers].sort((a, b) => b.ytdSpend - a.ytdSpend).slice(0, 5)
+      const total = suppliers.reduce((s, x) => s + x.ytdSpend, 0)
+      const share = Math.round((top[0].ytdSpend / total) * 100)
       return `**Top suppliers by YTD spend:**\n\n${top
         .map((s, i) => `${i + 1}. ${s.name} — ${fmtMoney(s.ytdSpend)} (${s.category})`)
-        .join('\n')}\n\nConcentration note: Brightline is 30% of YTD spend. Their last two invoices show price escalations — worth a contract review before Q3 volumes.`
+        .join('\n')}\n\nConcentration note: ${top[0].name} is ~${share}% of YTD spend — three contract recruiters on PO-2026-0004 plus placement fees. Worth a rate benchmark before extending the Q3 ramp.`
     },
   },
 ]
 
 export function answer(question: string): string {
   for (const a of answers) if (a.match.test(question)) return a.reply()
-  return `I can answer questions about your AP data — try:\n\n- "Show me possible duplicates"\n- "What's due this week?"\n- "Any fraud risks?"\n- "What discounts can we capture?"\n- "Why did DPO change?"\n- "Top suppliers by spend"`
+  return `I can answer questions about your AP data — try:\n\n- "Any fraud risks right now?"\n- "What's due this week?"\n- "Show me possible duplicates"\n- "How much is left on each PO?"\n- "What discounts can we capture?"\n- "Why did DPO change?"`
 }
 
 export const suggestedPrompts = [
   'Any fraud risks right now?',
   "What's due this week?",
   'Show me possible duplicates',
-  'What discounts can we capture?',
+  'How much is left on each PO?',
 ]

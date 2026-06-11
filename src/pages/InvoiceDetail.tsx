@@ -11,9 +11,10 @@ import {
   TrendingUp,
   Landmark,
   UserPlus,
+  Gauge,
 } from 'lucide-react'
 import { Card, CardHeader, StatusBadge, MatchBadge, ConfidenceBar, Button } from '../components/ui'
-import { supplierById } from '../data'
+import { supplierById, poById } from '../data'
 import { fmtMoney, fmtDate, daysOverdue, cls } from '../utils'
 import type { Invoice, AnomalyType } from '../types'
 
@@ -23,11 +24,18 @@ const anomalyIcon: Record<AnomalyType, typeof Copy> = {
   bank_change: Landmark,
   new_supplier: UserPlus,
   round_amount: AlertTriangle,
+  po_overrun: Gauge,
 }
 
 export function InvoiceDetail({ invoice, onBack }: { invoice: Invoice; onBack: () => void }) {
   const s = supplierById(invoice.supplierId)
   const over = invoice.status !== 'paid' && daysOverdue(invoice.dueDate) > 0
+  const ts = invoice.timesheet
+  const po = invoice.poId ? poById(invoice.poId) : undefined
+  const poRate = po?.lines[0]?.rate
+  const poPct = po ? Math.round((po.billedToDate / po.notToExceed) * 100) : 0
+  const poRemaining = po ? po.notToExceed - po.billedToDate - invoice.amount : 0
+  const unconfirmedHrs = 8
 
   return (
     <div className="space-y-4 p-6">
@@ -88,6 +96,7 @@ export function InvoiceDetail({ invoice, onBack }: { invoice: Invoice; onBack: (
                     {a.type === 'bank_change' && 'Bank account change — fraud check'}
                     {a.type === 'new_supplier' && 'New supplier — first invoice'}
                     {a.type === 'round_amount' && 'Round-amount pattern'}
+                    {a.type === 'po_overrun' && 'PO balance / timesheet overrun'}
                     <span className="ml-2 rounded-full bg-surface px-1.5 py-0.5 text-[10px] font-medium uppercase">
                       {a.severity}
                     </span>
@@ -184,7 +193,7 @@ export function InvoiceDetail({ invoice, onBack }: { invoice: Invoice; onBack: (
           {/* 3-way match */}
           {invoice.poNumber && (
             <Card>
-              <CardHeader title="3-way match" subtitle={`Invoice ↔ ${invoice.poNumber} ↔ Goods receipt`} />
+              <CardHeader title="3-way match" subtitle="Invoice ↔ PO ↔ timesheet/receipt" />
               <div className="grid gap-3 p-5 pt-2 sm:grid-cols-3">
                 {[
                   { label: 'Invoice', value: fmtMoney(invoice.amount), ok: true, note: invoice.number },
@@ -197,12 +206,25 @@ export function InvoiceDetail({ invoice, onBack }: { invoice: Invoice; onBack: (
                     ok: invoice.matchStatus !== 'price_variance',
                     note: invoice.poNumber,
                   },
-                  {
-                    label: 'Goods receipt',
-                    value: invoice.matchStatus === 'qty_variance' ? 'Partial (91%)' : 'Complete',
-                    ok: invoice.matchStatus !== 'qty_variance',
-                    note: invoice.matchStatus === 'qty_variance' ? '200 units unconfirmed' : 'All lines received',
-                  },
+                  ts
+                    ? {
+                        label: 'Timesheet',
+                        value:
+                          invoice.matchStatus === 'qty_variance'
+                            ? `${ts.hours - unconfirmedHrs} of ${ts.hours} hrs approved`
+                            : 'Confirmed',
+                        ok: invoice.matchStatus !== 'qty_variance',
+                        note:
+                          invoice.matchStatus === 'qty_variance'
+                            ? `${unconfirmedHrs} hrs unconfirmed`
+                            : 'hours match approved timesheet',
+                      }
+                    : {
+                        label: 'Goods receipt',
+                        value: invoice.matchStatus === 'qty_variance' ? 'Partial (91%)' : 'Complete',
+                        ok: invoice.matchStatus !== 'qty_variance',
+                        note: invoice.matchStatus === 'qty_variance' ? '200 units unconfirmed' : 'All lines received',
+                      },
                 ].map((m) => (
                   <div
                     key={m.label}
@@ -231,7 +253,7 @@ export function InvoiceDetail({ invoice, onBack }: { invoice: Invoice; onBack: (
         {/* Right: approvals + supplier + discount */}
         <div className="space-y-4">
           <Card>
-            <CardHeader title="Approval workflow" />
+            <CardHeader title="Approval workflow" subtitle="Fixed 4-level chain — every invoice" />
             <ol className="space-y-0 px-5 pb-5">
               {invoice.approvals.map((step, i) => (
                 <li key={i} className="relative flex gap-3 pb-5 last:pb-0">
@@ -282,6 +304,104 @@ export function InvoiceDetail({ invoice, onBack }: { invoice: Invoice; onBack: (
                   {invoice.discount.terms} — pay by {fmtDate(invoice.discount.deadline)} to capture.
                 </p>
                 <Button className="mt-3 w-full">Schedule early payment</Button>
+              </div>
+            </Card>
+          )}
+
+          {ts && (
+            <Card>
+              <CardHeader title="Timesheet" subtitle="Submitted with this invoice" />
+              <div className="px-5 pb-5 text-[13px]">
+                <dl className="space-y-1.5 text-ink-soft">
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-ink-faint">Service period</dt>
+                    <dd className="font-medium text-ink">{ts.period}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-ink-faint">Hours</dt>
+                    <dd>
+                      {ts.hours > 0 ? (
+                        <span className="tabular font-mono">{ts.hours}</span>
+                      ) : (
+                        'Day-rate engagement'
+                      )}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-ink-faint">Rate</dt>
+                    <dd className="tabular font-mono">
+                      {fmtMoney(ts.rate)}
+                      {ts.hours > 0 ? '/hr' : '/day'}
+                    </dd>
+                  </div>
+                  {ts.hours > 0 && (
+                    <div className="flex justify-between gap-3 border-t border-line pt-1.5">
+                      <dt className="text-ink-faint">
+                        {ts.hours} hrs × {fmtMoney(ts.rate)}
+                      </dt>
+                      <dd className="tabular font-mono font-medium text-ink">
+                        {fmtMoney(ts.hours * ts.rate)}
+                      </dd>
+                    </div>
+                  )}
+                </dl>
+                {poRate !== undefined &&
+                  (ts.rate > poRate ? (
+                    <p className="mt-2.5 flex items-center gap-1.5 rounded-md bg-danger-soft px-2.5 py-1.5 text-xs font-medium text-danger">
+                      <XCircle size={13} aria-hidden="true" /> above PO rate {fmtMoney(poRate)}
+                    </p>
+                  ) : (
+                    <p className="mt-2.5 flex items-center gap-1.5 rounded-md bg-accent-soft px-2.5 py-1.5 text-xs font-medium text-accent">
+                      <CheckCircle2 size={13} aria-hidden="true" /> matches PO rate
+                    </p>
+                  ))}
+              </div>
+            </Card>
+          )}
+
+          {po && (
+            <Card>
+              <CardHeader title="Purchase order" subtitle="Budget drawdown against NTE" />
+              <div className="space-y-3 px-5 pb-5 text-[13px]">
+                <div>
+                  <p className="font-mono text-[13px] font-semibold text-ink">{po.number}</p>
+                  <p className="mt-0.5 text-xs text-ink-faint">{po.title}</p>
+                </div>
+                <dl className="space-y-1.5 text-ink-soft">
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-ink-faint">Budget owner</dt>
+                    <dd>{po.budgetOwner}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-ink-faint">Cost center</dt>
+                    <dd>{po.costCenter}</dd>
+                  </div>
+                </dl>
+                <div>
+                  <div className="flex items-center justify-between text-[11px] text-ink-faint">
+                    <span>Billed to date</span>
+                    <span className="tabular font-mono">
+                      {fmtMoney(po.billedToDate)} / {fmtMoney(po.notToExceed)} · {poPct}%
+                    </span>
+                  </div>
+                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-line">
+                    <div
+                      className={cls('h-full rounded-full', poPct > 90 ? 'bg-danger' : 'bg-primary')}
+                      style={{ width: `${Math.min(poPct, 100)}%` }}
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-between gap-3 border-t border-line pt-2">
+                  <span className="text-ink-faint">Remaining after this invoice</span>
+                  <span
+                    className={cls(
+                      'tabular font-mono font-medium',
+                      poRemaining < 0 ? 'text-danger' : 'text-ink',
+                    )}
+                  >
+                    {fmtMoney(poRemaining)}
+                  </span>
+                </div>
               </div>
             </Card>
           )}

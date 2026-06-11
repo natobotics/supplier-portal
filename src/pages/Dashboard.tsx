@@ -96,23 +96,23 @@ const insights = [
     icon: AlertTriangle,
     tone: 'danger' as const,
     title: '2 high-risk anomalies need attention',
-    body: 'Bank-account change on Stellar IT Hardware before a $23,150 payment, and a probable duplicate from Ironpeak Facilities ($11,320).',
+    body: 'Probable duplicate from Tom Becker — TB-0590 ($11,400) mirrors TB-0589, paid Jun 2 — and a bank-account change on Stellar IT Hardware before the $23,150 SIH-5521 payment.',
     cta: 'Review exceptions',
     page: 'invoices' as Page,
   },
   {
     icon: Percent,
     tone: 'accent' as const,
-    title: `${fmtMoney(discountAvailable)} in early-pay discounts expiring`,
-    body: 'Brightline ($1,482 by Jun 16) and Northwind ($373 by Jun 18). Paying both early lifts June discount capture to 84%.',
+    title: `${fmtMoney(discountAvailable)} in early-pay discounts expire today`,
+    body: 'TBR-2088 (TalentBridge, save $588) and SNM-2026-06 (SecureNet, save $168) both hit their 2/10 deadline today, Jun 11. Release payment today to capture both.',
     cta: 'Open payments',
     page: 'payments' as Page,
   },
   {
     icon: Clock,
     tone: 'warn' as const,
-    title: 'QC-88317 stuck 60 days in approval',
-    body: 'Quanta invoice ($88,600) blocked on a receiving report for 200 units. Now 10 days past due — late fee risk under Net 60 terms.',
+    title: 'Rate violation on RP-2026-013',
+    body: 'Rajan Pillai billed $104.74/hr against the $95.00/hr rate on PO-2026-0007 (+10.3%). Supplier cites out-of-hours work — the PO carries no uplift clause.',
     cta: 'View approvals',
     page: 'approvals' as Page,
   },
@@ -145,16 +145,16 @@ export function Dashboard({ onNavigate }: { onNavigate: (p: Page) => void }) {
         />
         <Kpi
           label="DPO"
-          value="34.2 days"
-          sub="vs 36.8 last quarter"
+          value="28.4 days"
+          sub="vs 31.2 last quarter"
           icon={TrendingDown}
           trend="down"
           tone="accent"
         />
         <Kpi
           label="Touchless rate"
-          value="82%"
-          sub="May: 176 of 214 invoices"
+          value="77%"
+          sub="May: 60 of 78 invoices"
           icon={Zap}
           tone="accent"
           trend="down"

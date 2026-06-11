@@ -6,6 +6,8 @@ import { Dashboard } from './pages/Dashboard'
 import { Invoices } from './pages/Invoices'
 import { InvoiceDetail } from './pages/InvoiceDetail'
 import { Capture } from './pages/Capture'
+import { SubmitInvoice } from './pages/SubmitInvoice'
+import { POs } from './pages/POs'
 import { Approvals } from './pages/Approvals'
 import { Payments } from './pages/Payments'
 import { Suppliers } from './pages/Suppliers'
@@ -16,6 +18,8 @@ const titles: Record<Page, string> = {
   dashboard: 'Dashboard',
   invoices: 'Invoices',
   capture: 'Invoice capture',
+  submit: 'Submit invoice',
+  pos: 'Purchase orders',
   approvals: 'Approvals',
   payments: 'Payments',
   suppliers: 'Suppliers',
@@ -54,6 +58,10 @@ export default function App() {
             <Invoices onOpen={openInvoice} />
           ) : page === 'capture' ? (
             <Capture onOpen={openInvoice} />
+          ) : page === 'submit' ? (
+            <SubmitInvoice />
+          ) : page === 'pos' ? (
+            <POs />
           ) : page === 'approvals' ? (
             <Approvals onOpen={openInvoice} />
           ) : page === 'payments' ? (
