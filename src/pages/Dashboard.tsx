@@ -25,7 +25,7 @@ import {
   Line,
   Legend,
 } from 'recharts'
-import { Card, CardHeader, Button } from '../components/ui'
+import { Card, CardHeader, Button, Hint } from '../components/ui'
 import { activities, cashForecast, monthlyTrend, supplierById, entityById } from '../data'
 import { useInvoices, isLive } from '../lib/api'
 import {
@@ -54,6 +54,7 @@ function Kpi({
   icon: Icon,
   trend,
   tone = 'neutral',
+  hint,
 }: {
   label: string
   value: string
@@ -61,11 +62,15 @@ function Kpi({
   icon: typeof Wallet
   trend?: 'up' | 'down'
   tone?: 'neutral' | 'danger' | 'accent'
+  hint?: string
 }) {
   return (
     <Card className="p-5">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-ink-soft">{label}</span>
+        <span className="flex items-center gap-1">
+          <span className="text-xs font-medium text-ink-soft">{label}</span>
+          {hint && <Hint text={hint} />}
+        </span>
         <Icon
           size={16}
           className={cls(
@@ -202,6 +207,7 @@ export function Dashboard({ onNavigate }: { onNavigate: (p: Page) => void }) {
           value={compact(outstanding)}
           sub={`${open.length} open invoices · net of credit notes`}
           icon={Wallet}
+          hint="Everything not yet paid, net of credit notes, converted to the view currency"
         />
         <Kpi
           label="Overdue"
@@ -210,12 +216,14 @@ export function Dashboard({ onNavigate }: { onNavigate: (p: Page) => void }) {
           icon={AlertTriangle}
           tone="danger"
           trend="up"
+          hint="Open invoices past their due date"
         />
         <Kpi
           label="Pending approval"
           value={compact(pendingAmt)}
           sub={`${pendingApproval.length} awaiting action`}
           icon={Clock}
+          hint="Waiting on someone in the 4-step chain"
         />
         <Kpi
           label="DPO"
@@ -224,6 +232,7 @@ export function Dashboard({ onNavigate }: { onNavigate: (p: Page) => void }) {
           icon={TrendingDown}
           trend="down"
           tone="accent"
+          hint="Days payable outstanding — average days from invoice to payment"
         />
         <Kpi
           label="Touchless rate"
@@ -232,13 +241,19 @@ export function Dashboard({ onNavigate }: { onNavigate: (p: Page) => void }) {
           icon={Zap}
           tone="accent"
           trend="down"
+          hint="Invoices fully processed by AI with zero human edits"
         />
       </div>
 
       {/* AI insights */}
       <Card>
         <CardHeader
-          title="AI insights"
+          title={
+            <span className="inline-flex items-center gap-1.5">
+              AI insights
+              <Hint text="Generated from live AP data — click a card to jump to the action." />
+            </span>
+          }
           subtitle="Generated from live AP data — refreshed 8 minutes ago"
           action={
             <span className="flex items-center gap-2">

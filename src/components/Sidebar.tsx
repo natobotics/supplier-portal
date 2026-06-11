@@ -20,6 +20,7 @@ import {
   PiggyBank,
   FileSignature,
   Users,
+  LogOut,
 } from 'lucide-react'
 import type { Page } from '../types'
 import { invoices } from '../data'
@@ -80,10 +81,12 @@ export function Sidebar({
   page,
   onNavigate,
   onOpenCopilot,
+  onSignOut,
 }: {
   page: Page
   onNavigate: (p: Page) => void
   onOpenCopilot: () => void
+  onSignOut: () => void
 }) {
   const pendingApprovals = invoices.filter((i) =>
     i.approvals.some((a) => a.status === 'pending'),
@@ -167,10 +170,18 @@ export function Sidebar({
           <span className="flex h-7 w-7 items-center justify-center rounded-full bg-accent-soft text-[11px] font-semibold text-accent">
             SC
           </span>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="truncate text-xs font-medium text-ink">Sarah Chen</p>
             <p className="truncate text-[11px] text-ink-faint">AP Manager · Admin</p>
           </div>
+          <button
+            onClick={onSignOut}
+            title="Sign out"
+            aria-label="Sign out"
+            className="cursor-pointer rounded-lg p-1.5 text-ink-faint transition-colors hover:bg-canvas hover:text-danger"
+          >
+            <LogOut size={15} aria-hidden="true" />
+          </button>
         </div>
         <p className="mt-2 px-2 text-[10px] leading-snug text-ink-faint">
           Build it. Support it. Scale it.
