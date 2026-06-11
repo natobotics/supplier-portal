@@ -1,6 +1,7 @@
 import type {
   Supplier, PurchaseOrder, Invoice, PaymentBatch, Activity, ApprovalStep,
   Entity, ClientPO, IR35Info, RecurringSchedule, AuditEvent, AdminConfig,
+  TimesheetWeek, OnboardingCase, OnboardingStep, AppNotification,
 } from './types'
 import { PEOPLE } from './types'
 
@@ -793,6 +794,73 @@ export const cashForecast = [
   { week: 'Jun 29–Jul 5', scheduled: 29400, projected: 31000 },
   { week: 'Jul 6–12', scheduled: 50050, projected: 24000 },
   { week: 'Jul 13–19', scheduled: 0, projected: 46000 },
+]
+
+export const timesheetWeeks: TimesheetWeek[] = [
+  // Rajan Pillai — PO-2026-0007 ($95/hr, James Holt approves)
+  { id: 'tw-01', supplierId: 'sup-05', poId: 'po-01', entityId: 'ent-uk', weekStart: '2026-06-08', hours: [8, 8, 7.5, 0, 0, 0, 0], status: 'draft' },
+  { id: 'tw-02', supplierId: 'sup-05', poId: 'po-01', entityId: 'ent-uk', weekStart: '2026-06-01', hours: [8, 8, 8, 8, 6, 0, 0], status: 'submitted', submittedAt: '2026-06-08' },
+  { id: 'tw-03', supplierId: 'sup-05', poId: 'po-01', entityId: 'ent-uk', weekStart: '2026-05-25', hours: [8, 8, 8, 8, 6, 0, 0], status: 'approved', submittedAt: '2026-06-01', approver: 'James Holt', decidedAt: '2026-06-02', invoiceDrafted: true },
+  // Elena Marquez — PO-2026-0011 (€110/hr)
+  { id: 'tw-04', supplierId: 'sup-06', poId: 'po-02', entityId: 'ent-es', weekStart: '2026-06-01', hours: [8, 8, 8, 8, 8, 0, 0], status: 'submitted', submittedAt: '2026-06-08' },
+  { id: 'tw-05', supplierId: 'sup-06', poId: 'po-02', entityId: 'ent-es', weekStart: '2026-05-25', hours: [8, 8, 8, 6, 8, 0, 0], status: 'rejected', submittedAt: '2026-06-01', approver: 'James Holt', decidedAt: '2026-06-02', comment: 'Thursday client outage day — site was closed, please correct to 4h.' },
+  // Yuki Tanaka — PO-2026-0013 (SGD 88/hr, Aisha Bello approves)
+  { id: 'tw-06', supplierId: 'sup-08', poId: 'po-04', entityId: 'ent-sg', weekStart: '2026-06-01', hours: [8, 8, 0, 8, 8, 4, 0], status: 'approved', submittedAt: '2026-06-07', approver: 'Aisha Bello', decidedAt: '2026-06-08', invoiceDrafted: false },
+  { id: 'tw-07', supplierId: 'sup-08', poId: 'po-04', entityId: 'ent-sg', weekStart: '2026-06-08', hours: [8, 4, 0, 0, 0, 0, 0], status: 'draft' },
+  // Amara Diallo — PO-2026-0019 draft PO (security)
+  { id: 'tw-08', supplierId: 'sup-09', poId: 'po-08', entityId: 'ent-nl', weekStart: '2026-06-01', hours: [6, 6, 6, 6, 0, 0, 0], status: 'submitted', submittedAt: '2026-06-08' },
+]
+
+const STD_STEPS = (overrides: Record<string, Partial<OnboardingStep>> = {}) =>
+  [
+    { id: 'details', label: 'Company & contact details', status: 'complete' as const },
+    { id: 'tax', label: 'Tax registration (W-9 / W-8 / VAT)', status: 'pending' as const },
+    { id: 'bank', label: 'Bank verification (penny test)', status: 'pending' as const },
+    { id: 'contract', label: 'Contract & rate card', status: 'pending' as const },
+    { id: 'compliance', label: 'Compliance review (IR35 / sanctions)', status: 'pending' as const },
+  ].map((s) => ({ ...s, ...overrides[s.id] }))
+
+export const onboardingCases: OnboardingCase[] = [
+  {
+    id: 'onb-01', name: 'Cobalt Staffing Agency', contactName: 'Maya Singh', email: 'payroll@cobaltstaffing.com',
+    segment: 'subcontractor', entityId: 'ent-uk', started: '2026-05-21',
+    steps: STD_STEPS({
+      tax: { status: 'blocked', note: 'W-9 requested twice — invoice CSA-2026-118 held until received' },
+      bank: { status: 'complete' },
+      contract: { status: 'complete' },
+      compliance: { status: 'in_progress', note: 'Placement terms under HR review' },
+    }),
+  },
+  {
+    id: 'onb-02', name: 'Bright Umbrella Ltd', contactName: 'Owen Price', email: 'accounts@brightumbrella.co.uk',
+    segment: 'freelancer', entityId: 'ent-uk', started: '2026-06-05',
+    steps: STD_STEPS({
+      tax: { status: 'complete' },
+      bank: { status: 'in_progress', note: 'Penny test sent Jun 10 — awaiting confirmation' },
+      contract: { status: 'complete' },
+      compliance: { status: 'blocked', note: 'Inside-IR35 engagement PO-2026-0019 — SDS document missing' },
+    }),
+  },
+  {
+    id: 'onb-03', name: 'Vistula IT Services', contactName: 'Marta Kowalska', email: 'faktury@vistulait.pl',
+    segment: 'it_services', entityId: 'ent-pl', started: '2026-06-09',
+    steps: STD_STEPS({
+      tax: { status: 'in_progress', note: 'NIP verification with VIES in progress' },
+    }),
+  },
+]
+
+export const notifications: AppNotification[] = [
+  { id: 'ntf-01', ts: '2026-06-11 09:50', audience: 'internal', title: 'Timesheet awaiting approval', body: 'Rajan Pillai submitted 38.0 hrs (wk Jun 1) against PO-2026-0007 — James Holt to review.', kind: 'timesheet', read: false },
+  { id: 'ntf-02', ts: '2026-06-11 09:42', audience: 'internal', title: 'Duplicate suspected', body: 'TB-0590 mirrors paid TB-0589 (same PO, period, amount). Held in exceptions.', kind: 'compliance', read: false },
+  { id: 'ntf-03', ts: '2026-06-11 08:30', audience: 'supplier', supplierId: 'sup-01', title: 'Payment scheduled', body: 'TBR-2088 (£29,400) approved by HR — scheduled for the Jun 12 ACH run.', kind: 'payment', read: false },
+  { id: 'ntf-04', ts: '2026-06-10 17:05', audience: 'supplier', supplierId: 'sup-06', title: 'Timesheet rejected', body: 'Week of May 25: Thursday hours queried — correct to 4h and resubmit.', kind: 'timesheet', read: true },
+  { id: 'ntf-05', ts: '2026-06-10 16:20', audience: 'internal', title: 'Bank change frozen', body: 'Stellar IT Hardware remit-to change held 72h pending out-of-band verification.', kind: 'compliance', read: true },
+  { id: 'ntf-06', ts: '2026-06-10 14:00', audience: 'supplier', supplierId: 'sup-05', title: 'Invoice approved', body: 'RP-2026-012 (£6,650) fully approved — payment settled May 26.', kind: 'status', read: true },
+  { id: 'ntf-07', ts: '2026-06-10 11:30', audience: 'internal', title: 'Onboarding blocked', body: 'Bright Umbrella Ltd — SDS missing on inside-IR35 engagement. First invoice will be blocked.', kind: 'compliance', read: true },
+  { id: 'ntf-08', ts: '2026-06-09 15:45', audience: 'supplier', supplierId: 'sup-08', title: 'Timesheet approved', body: 'Week of Jun 1 (36.0 hrs) approved by Aisha Bello — draft invoice ready to submit.', kind: 'timesheet', read: true },
+  { id: 'ntf-09', ts: '2026-06-09 10:00', audience: 'internal', title: 'CEO approval pending', body: 'SNM-2026-06 (£8,400) at step 4 of 4 — discount deadline Jun 11.', kind: 'approval', read: true },
+  { id: 'ntf-10', ts: '2026-06-08 09:15', audience: 'supplier', supplierId: 'sup-04', title: 'Invoice held', body: 'CSA-2026-118 cannot be paid until your W-9 is on file. Upload via onboarding.', kind: 'compliance', read: true },
 ]
 
 export const supplierById = (id: string) => suppliers.find((s) => s.id === id)!

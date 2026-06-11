@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Sidebar } from './components/Sidebar'
 import { Topbar } from './components/Topbar'
 import { Copilot } from './components/Copilot'
+import { NotificationsPanel } from './components/NotificationsPanel'
 import { Dashboard } from './pages/Dashboard'
 import { Invoices } from './pages/Invoices'
 import { InvoiceDetail } from './pages/InvoiceDetail'
@@ -12,6 +13,9 @@ import { Approvals } from './pages/Approvals'
 import { Payments } from './pages/Payments'
 import { Suppliers } from './pages/Suppliers'
 import { Reports } from './pages/Reports'
+import { Timesheets } from './pages/Timesheets'
+import { Statements } from './pages/Statements'
+import { Onboarding } from './pages/Onboarding'
 import { ClientPOs } from './pages/ClientPOs'
 import { Assurance } from './pages/Assurance'
 import { Compliance } from './pages/Compliance'
@@ -25,6 +29,9 @@ const titles: Record<Page, string> = {
   invoices: 'Invoices',
   capture: 'Invoice capture',
   submit: 'Submit invoice',
+  timesheets: 'Timesheets',
+  statements: 'Supplier statements',
+  onboarding: 'Supplier onboarding',
   pos: 'Purchase orders',
   approvals: 'Approvals',
   payments: 'Payments',
@@ -41,6 +48,7 @@ export default function App() {
   const [page, setPage] = useState<Page>('dashboard')
   const [invoice, setInvoice] = useState<Invoice | null>(null)
   const [copilotOpen, setCopilotOpen] = useState(false)
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
 
   const navigate = (p: Page) => {
     setInvoice(null)
@@ -60,6 +68,7 @@ export default function App() {
         <Topbar
           title={invoice ? 'Invoice detail' : titles[page]}
           onNewInvoice={() => navigate('capture')}
+          onOpenNotifications={() => setNotificationsOpen(true)}
         />
         <main className="flex-1 overflow-y-auto">
           {invoice ? (
@@ -72,6 +81,12 @@ export default function App() {
             <Capture onOpen={openInvoice} />
           ) : page === 'submit' ? (
             <SubmitInvoice />
+          ) : page === 'timesheets' ? (
+            <Timesheets />
+          ) : page === 'statements' ? (
+            <Statements />
+          ) : page === 'onboarding' ? (
+            <Onboarding />
           ) : page === 'pos' ? (
             <POs />
           ) : page === 'approvals' ? (
@@ -96,6 +111,7 @@ export default function App() {
         </main>
       </div>
       <Copilot open={copilotOpen} onClose={() => setCopilotOpen(false)} />
+      <NotificationsPanel open={notificationsOpen} onClose={() => setNotificationsOpen(false)} />
     </div>
     </EntityProvider>
   )

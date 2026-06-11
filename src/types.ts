@@ -219,11 +219,58 @@ export interface AdminConfig {
   lineManagers: string[]
 }
 
+export interface TimesheetWeek {
+  id: string
+  supplierId: string
+  poId: string
+  entityId: string
+  weekStart: string
+  hours: number[] // Mon..Sun
+  status: 'draft' | 'submitted' | 'approved' | 'rejected'
+  submittedAt?: string
+  approver?: string
+  decidedAt?: string
+  comment?: string
+  invoiceDrafted?: boolean
+}
+
+export interface OnboardingStep {
+  id: string
+  label: string
+  status: 'complete' | 'in_progress' | 'pending' | 'blocked'
+  note?: string
+}
+
+export interface OnboardingCase {
+  id: string
+  name: string
+  contactName: string
+  email: string
+  segment: SupplierSegment
+  entityId: string
+  started: string
+  steps: OnboardingStep[]
+}
+
+export interface AppNotification {
+  id: string
+  ts: string
+  audience: 'internal' | 'supplier'
+  supplierId?: string
+  title: string
+  body: string
+  kind: 'status' | 'approval' | 'payment' | 'compliance' | 'timesheet'
+  read: boolean
+}
+
 export type Page =
   | 'dashboard'
   | 'invoices'
   | 'capture'
   | 'submit'
+  | 'timesheets'
+  | 'statements'
+  | 'onboarding'
   | 'pos'
   | 'approvals'
   | 'payments'

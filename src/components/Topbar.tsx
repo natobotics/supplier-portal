@@ -1,16 +1,19 @@
 import { Search, Bell, Plus, Building } from 'lucide-react'
 import { Button } from './ui'
-import { entities } from '../data'
+import { entities, notifications } from '../data'
 import { useEntity } from '../context'
 
 export function Topbar({
   title,
   onNewInvoice,
+  onOpenNotifications,
 }: {
   title: string
   onNewInvoice: () => void
+  onOpenNotifications: () => void
 }) {
   const { entity, setEntity } = useEntity()
+  const unreadCount = notifications.filter((n) => !n.read).length
   return (
     <header className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-line bg-surface px-6">
       <h1 className="text-lg font-semibold tracking-tight whitespace-nowrap text-ink">{title}</h1>
@@ -51,11 +54,14 @@ export function Topbar({
           </select>
         </label>
         <button
+          onClick={onOpenNotifications}
           className="relative cursor-pointer rounded-lg p-2 text-ink-soft transition-colors hover:bg-canvas hover:text-ink focus-visible:outline-2 focus-visible:outline-primary"
-          aria-label="Notifications — 3 unread"
+          aria-label={`Notifications — ${unreadCount} unread`}
         >
           <Bell size={18} aria-hidden="true" />
-          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-danger" />
+          {notifications.some((n) => !n.read) && (
+            <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-danger" />
+          )}
         </button>
         <Button onClick={onNewInvoice}>
           <Plus size={15} aria-hidden="true" />

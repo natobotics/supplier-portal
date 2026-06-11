@@ -14,6 +14,9 @@ import {
   ShieldCheck,
   Globe,
   Settings,
+  Clock3,
+  ReceiptText,
+  UserPlus,
 } from 'lucide-react'
 import type { Page } from '../types'
 import { invoices } from '../data'
@@ -34,10 +37,18 @@ const groups: Array<{ header?: string; items: NavItem[] }> = [
     items: [
       { id: 'invoices', label: 'Invoices', icon: FileText },
       { id: 'capture', label: 'Capture', icon: Inbox },
-      { id: 'submit', label: 'Submit invoice', icon: Send },
       { id: 'pos', label: 'Purchase orders', icon: ClipboardList },
       { id: 'approvals', label: 'Approvals', icon: CheckSquare },
       { id: 'payments', label: 'Payments', icon: CreditCard },
+    ],
+  },
+  {
+    header: 'Supplier portal',
+    items: [
+      { id: 'submit', label: 'Submit invoice', icon: Send },
+      { id: 'timesheets', label: 'Timesheets', icon: Clock3 },
+      { id: 'statements', label: 'Statements', icon: ReceiptText },
+      { id: 'onboarding', label: 'Onboarding', icon: UserPlus },
     ],
   },
   {
