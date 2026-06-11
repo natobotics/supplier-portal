@@ -1,31 +1,49 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { Sidebar } from './components/Sidebar'
 import { Topbar } from './components/Topbar'
 import { Copilot } from './components/Copilot'
 import { NotificationsPanel } from './components/NotificationsPanel'
-import { Dashboard } from './pages/Dashboard'
-import { Invoices } from './pages/Invoices'
-import { InvoiceDetail } from './pages/InvoiceDetail'
-import { Capture } from './pages/Capture'
-import { SubmitInvoice } from './pages/SubmitInvoice'
-import { POs } from './pages/POs'
-import { Approvals } from './pages/Approvals'
-import { Payments } from './pages/Payments'
-import { Suppliers } from './pages/Suppliers'
-import { Reports } from './pages/Reports'
-import { Timesheets } from './pages/Timesheets'
-import { Statements } from './pages/Statements'
-import { Onboarding } from './pages/Onboarding'
-import { ClientPOs } from './pages/ClientPOs'
-import { Budgets } from './pages/Budgets'
-import { Contracts } from './pages/Contracts'
-import { Users } from './pages/Users'
-import { Assurance } from './pages/Assurance'
-import { Compliance } from './pages/Compliance'
-import { Entities } from './pages/Entities'
-import { Admin } from './pages/Admin'
 import { EntityProvider } from './context'
 import type { Page, Invoice } from './types'
+
+// Route-level code splitting — heavy dependencies (recharts on Dashboard and
+// Reports, supabase on the data-backed pages) load with their page, not in
+// the initial bundle.
+const Dashboard = lazy(() => import('./pages/Dashboard').then((m) => ({ default: m.Dashboard })))
+const Invoices = lazy(() => import('./pages/Invoices').then((m) => ({ default: m.Invoices })))
+const InvoiceDetail = lazy(() => import('./pages/InvoiceDetail').then((m) => ({ default: m.InvoiceDetail })))
+const Capture = lazy(() => import('./pages/Capture').then((m) => ({ default: m.Capture })))
+const SubmitInvoice = lazy(() => import('./pages/SubmitInvoice').then((m) => ({ default: m.SubmitInvoice })))
+const POs = lazy(() => import('./pages/POs').then((m) => ({ default: m.POs })))
+const Approvals = lazy(() => import('./pages/Approvals').then((m) => ({ default: m.Approvals })))
+const Payments = lazy(() => import('./pages/Payments').then((m) => ({ default: m.Payments })))
+const Suppliers = lazy(() => import('./pages/Suppliers').then((m) => ({ default: m.Suppliers })))
+const Reports = lazy(() => import('./pages/Reports').then((m) => ({ default: m.Reports })))
+const Timesheets = lazy(() => import('./pages/Timesheets').then((m) => ({ default: m.Timesheets })))
+const Statements = lazy(() => import('./pages/Statements').then((m) => ({ default: m.Statements })))
+const Onboarding = lazy(() => import('./pages/Onboarding').then((m) => ({ default: m.Onboarding })))
+const ClientPOs = lazy(() => import('./pages/ClientPOs').then((m) => ({ default: m.ClientPOs })))
+const Budgets = lazy(() => import('./pages/Budgets').then((m) => ({ default: m.Budgets })))
+const Contracts = lazy(() => import('./pages/Contracts').then((m) => ({ default: m.Contracts })))
+const Users = lazy(() => import('./pages/Users').then((m) => ({ default: m.Users })))
+const Assurance = lazy(() => import('./pages/Assurance').then((m) => ({ default: m.Assurance })))
+const Compliance = lazy(() => import('./pages/Compliance').then((m) => ({ default: m.Compliance })))
+const Entities = lazy(() => import('./pages/Entities').then((m) => ({ default: m.Entities })))
+const Admin = lazy(() => import('./pages/Admin').then((m) => ({ default: m.Admin })))
+
+function PageSkeleton() {
+  return (
+    <div className="animate-pulse space-y-5 p-6" aria-label="Loading page" role="status">
+      <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="h-24 rounded-xl border border-line bg-surface" />
+        ))}
+      </div>
+      <div className="h-64 rounded-xl border border-line bg-surface" />
+      <div className="h-40 rounded-xl border border-line bg-surface" />
+    </div>
+  )
+}
 
 const titles: Record<Page, string> = {
   dashboard: 'Dashboard',
@@ -110,6 +128,7 @@ export default function App() {
           onOpenNotifications={() => setNotificationsOpen(true)}
         />
         <main className="flex-1 overflow-y-auto">
+          <Suspense fallback={<PageSkeleton />}>
           {invoice ? (
             <InvoiceDetail invoice={invoice} onBack={() => setInvoice(null)} />
           ) : page === 'dashboard' ? (
@@ -153,6 +172,7 @@ export default function App() {
           ) : (
             <Reports />
           )}
+          </Suspense>
         </main>
       </div>
       <Copilot open={copilotOpen} onClose={() => setCopilotOpen(false)} />
