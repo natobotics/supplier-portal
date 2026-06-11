@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { X, Send, Sparkles, Bot } from 'lucide-react'
-import { answer, suggestedPrompts, type CopilotMessage } from '../ai/copilot'
+import { askLive, suggestedPrompts, type CopilotMessage } from '../ai/copilot'
 import { cls } from '../utils'
 
 function renderMarkdown(text: string) {
@@ -21,6 +21,7 @@ export function Copilot({ open, onClose }: { open: boolean; onClose: () => void 
   const [messages, setMessages] = useState<CopilotMessage[]>([])
   const [input, setInput] = useState('')
   const [thinking, setThinking] = useState(false)
+  const [live, setLive] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -35,16 +36,18 @@ export function Copilot({ open, onClose }: { open: boolean; onClose: () => void 
     return () => window.removeEventListener('keydown', onKey)
   }, [open, onClose])
 
-  const send = (text: string) => {
+  const send = async (text: string) => {
     const q = text.trim()
     if (!q || thinking) return
-    setMessages((m) => [...m, { role: 'user', content: q }])
+    const userMsg: CopilotMessage = { role: 'user', content: q }
+    setMessages((m) => [...m, userMsg])
     setInput('')
     setThinking(true)
-    setTimeout(() => {
-      setMessages((m) => [...m, { role: 'assistant', content: answer(q) }])
-      setThinking(false)
-    }, 900)
+    // askLive falls back to the local engine internally — just render what it returns.
+    const reply = await askLive([...messages, userMsg])
+    setLive(reply.live)
+    setMessages((m) => [...m, { role: 'assistant', content: reply.text }])
+    setThinking(false)
   }
 
   return (
@@ -74,7 +77,19 @@ export function Copilot({ open, onClose }: { open: boolean; onClose: () => void 
               <Sparkles size={15} aria-hidden="true" />
             </span>
             <div>
-              <h2 className="text-sm font-semibold text-ink">AP Copilot</h2>
+              <div className="flex items-center gap-1.5">
+                <h2 className="text-sm font-semibold text-ink">AP Copilot</h2>
+                <span
+                  className={cls(
+                    'inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium whitespace-nowrap',
+                    live
+                      ? 'bg-accent-soft text-accent'
+                      : 'border border-line bg-canvas text-ink-faint',
+                  )}
+                >
+                  {live ? 'Live · claude-fable-5' : 'Demo engine'}
+                </span>
+              </div>
               <p className="text-[11px] text-ink-faint">Grounded in your live AP subledger</p>
             </div>
           </div>

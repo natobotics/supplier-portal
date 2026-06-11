@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import {
   Building2,
@@ -15,6 +15,7 @@ import { Card, CardHeader, Button } from '../components/ui'
 import { entities, invoices, suppliers } from '../data'
 import { cls, convert, fmtGBP, fmtMoney, toGBP } from '../utils'
 import { useEntity } from '../context'
+import { useEntities, isLive } from '../lib/api'
 import type { Entity } from '../types'
 
 const CURRENCY_OPTIONS = ['GBP', 'USD', 'EUR', 'PLN', 'AED', 'INR', 'SGD', 'SEK'] as const
@@ -55,12 +56,20 @@ function slugify(name: string): string {
 
 export function Entities() {
   const { entity } = useEntity()
+  const liveEntities = useEntities()
   const [list, setList] = useState<Entity[]>(entities)
+  const [dirty, setDirty] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm)
   const [banner, setBanner] = useState<string | null>(null)
   const [changes, setChanges] = useState<ChangeLine[]>([])
+
+  // Live cutover: adopt Supabase rows when they land, but never clobber
+  // local add/edit/toggle work made this session.
+  useEffect(() => {
+    if (!dirty) setList(liveEntities)
+  }, [liveEntities, dirty])
 
   const logChange = (action: string) =>
     setChanges((prev) => [
@@ -96,16 +105,13 @@ export function Entities() {
 
   // ---- Mutations ----
   const toggleActive = (id: string) => {
-    let line = ''
-    setList((prev) =>
-      prev.map((e) => {
-        if (e.id !== id) return e
-        const next = { ...e, active: !e.active }
-        line = `Entity ${next.active ? 'reactivated' : 'deactivated'} — ${next.name} (${next.currency})`
-        return next
-      }),
-    )
-    if (line) logChange(line)
+    setDirty(true)
+    const target = list.find((e) => e.id === id)
+    setList((prev) => prev.map((e) => (e.id === id ? { ...e, active: !e.active } : e)))
+    if (target)
+      logChange(
+        `Entity ${target.active ? 'deactivated' : 'reactivated'} — ${target.name} (${target.currency})`,
+      )
   }
 
   const openAdd = () => {
@@ -140,6 +146,7 @@ export function Entities() {
     const country = form.country.trim()
     const taxRegime = form.taxRegime.trim() || '—'
     if (!name || !country || !currency) return
+    setDirty(true)
 
     if (editingId) {
       setList((prev) =>
@@ -176,9 +183,16 @@ export function Entities() {
             <ShieldCheck size={13} aria-hidden="true" /> Entity changes are audit-logged
           </p>
         </div>
-        <Button onClick={openAdd}>
-          <Plus size={14} aria-hidden="true" /> Add entity
-        </Button>
+        <div className="flex items-center gap-2">
+          {isLive && (
+            <span className="flex items-center gap-1.5 rounded-full bg-accent-soft px-2.5 py-1 text-[11px] font-medium text-accent">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" /> Live — Supabase
+            </span>
+          )}
+          <Button onClick={openAdd}>
+            <Plus size={14} aria-hidden="true" /> Add entity
+          </Button>
+        </div>
       </div>
 
       {/* KPI strip */}

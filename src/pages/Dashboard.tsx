@@ -26,7 +26,8 @@ import {
   Legend,
 } from 'recharts'
 import { Card, CardHeader, Button } from '../components/ui'
-import { invoices, activities, cashForecast, monthlyTrend, supplierById, entityById } from '../data'
+import { activities, cashForecast, monthlyTrend, supplierById, entityById } from '../data'
+import { useInvoices, isLive } from '../lib/api'
 import {
   fmtMoney,
   fmtCompact,
@@ -87,6 +88,7 @@ function Kpi({
 
 export function Dashboard({ onNavigate }: { onNavigate: (p: Page) => void }) {
   const { entity } = useEntity()
+  const invoices = useInvoices()
   const currency = entity === 'all' ? REPORTING_CURRENCY : entityById(entity)?.currency ?? REPORTING_CURRENCY
 
   // Entity functional currency for a single entity; consolidated GBP for the group view.
@@ -162,7 +164,7 @@ export function Dashboard({ onNavigate }: { onNavigate: (p: Page) => void }) {
       agingData,
       topBalances,
     }
-  }, [entity, currency])
+  }, [entity, currency, invoices])
 
   const insights = [
     {
@@ -239,8 +241,15 @@ export function Dashboard({ onNavigate }: { onNavigate: (p: Page) => void }) {
           title="AI insights"
           subtitle="Generated from live AP data — refreshed 8 minutes ago"
           action={
-            <span className="flex items-center gap-1 rounded-full bg-info-soft px-2.5 py-1 text-[11px] font-medium text-secondary">
-              <Sparkles size={11} aria-hidden="true" /> Aprio AI
+            <span className="flex items-center gap-2">
+              {isLive && (
+                <span className="flex items-center gap-1 rounded-full bg-accent-soft px-2 py-1 text-[10px] font-medium text-accent">
+                  <span className="h-1 w-1 animate-pulse rounded-full bg-accent" /> Live
+                </span>
+              )}
+              <span className="flex items-center gap-1 rounded-full bg-info-soft px-2.5 py-1 text-[11px] font-medium text-secondary">
+                <Sparkles size={11} aria-hidden="true" /> Aprio AI
+              </span>
             </span>
           }
         />

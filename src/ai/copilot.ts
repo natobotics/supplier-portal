@@ -263,3 +263,39 @@ export const suggestedPrompts = [
   'Show me possible duplicates',
   'Any budgets close to the limit?',
 ]
+
+// Live path — POSTs the conversation to the deployed Netlify function backed by
+// Claude (claude-fable-5, AP-analyst system prompt server-side). On ANY failure
+// (local dev 404, network error, timeout, empty reply) it falls back to the
+// deterministic local engine above so the demo never breaks. Local action rules
+// (approve … / confirm approve …) keep working offline via the same fallback.
+export async function askLive(
+  history: CopilotMessage[],
+): Promise<{ text: string; live: boolean }> {
+  const fallback = () => ({
+    text: answer(history[history.length - 1]?.content ?? ''),
+    live: false,
+  })
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 20000)
+  try {
+    const res = await fetch('/.netlify/functions/copilot', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: history.map((m) => ({ role: m.role, content: m.content })),
+      }),
+      signal: controller.signal,
+    })
+    if (!res.ok) return fallback()
+    // Raw Anthropic Messages API response — assistant text lives in a content block.
+    const data: { content?: Array<{ type?: string; text?: string }> } = await res.json()
+    const text = data.content?.find((b) => b.type === 'text')?.text
+    if (text && text.trim()) return { text, live: true }
+    return fallback()
+  } catch {
+    return fallback()
+  } finally {
+    clearTimeout(timer)
+  }
+}

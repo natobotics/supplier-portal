@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react'
 import { AlertTriangle, Mail, Upload, Rss, Globe, ChevronRight, Filter } from 'lucide-react'
 import { Card, StatusBadge, MatchBadge, Button } from '../components/ui'
-import { invoices, supplierById, entityById } from '../data'
+import { supplierById, entityById } from '../data'
 import { useEntity } from '../context'
+import { useInvoices, isLive } from '../lib/api'
 import { fmtMoney, fmtDateShort, daysOverdue, cls } from '../utils'
 import type { Invoice, InvoiceStatus } from '../types'
 
@@ -28,10 +29,11 @@ export function Invoices({ onOpen }: { onOpen: (inv: Invoice) => void }) {
   const [tab, setTab] = useState<(typeof tabs)[number]['id']>('all')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const { entity } = useEntity()
+  const invoices = useInvoices()
 
   const scoped = useMemo(
     () => (entity === 'all' ? invoices : invoices.filter((i) => i.entityId === entity)),
-    [entity],
+    [entity, invoices],
   )
 
   const rows = useMemo(() => {
@@ -93,9 +95,16 @@ export function Invoices({ onOpen }: { onOpen: (inv: Invoice) => void }) {
             </button>
           ))}
         </div>
-        <Button variant="secondary" className="hidden lg:inline-flex">
-          <Filter size={14} aria-hidden="true" /> Filters
-        </Button>
+        <div className="flex items-center gap-2">
+          {isLive && (
+            <span className="flex items-center gap-1.5 rounded-full bg-accent-soft px-2.5 py-1 text-[11px] font-medium text-accent">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" /> Live — Supabase
+            </span>
+          )}
+          <Button variant="secondary" className="hidden lg:inline-flex">
+            <Filter size={14} aria-hidden="true" /> Filters
+          </Button>
+        </div>
       </div>
 
       {/* Bulk action bar */}
