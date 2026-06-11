@@ -133,6 +133,7 @@ export function POs() {
       id: `po-${number.toLowerCase()}`,
       number,
       supplierId,
+      entityId: supplierById(supplierId).entityId,
       title: title.trim(),
       budgetOwner,
       costCenter: costCenter.trim(),

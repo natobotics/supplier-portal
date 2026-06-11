@@ -69,6 +69,16 @@ with role queues, payment batches with dual control, anomaly detection
 
 - **Multi-entity**: entity dimension everywhere; entity switcher in shell;
   per-entity and consolidated dashboards/reports.
+- **Entity management** (scope addition): entities are admin-managed data, not
+  configuration — admins add/edit/deactivate entities (name, country, currency,
+  tax regime) from the product; every change audit-logged.
+- **Admin console & post-approval flexibility** (scope addition): the 4-level
+  chain shape is fixed, but assignments are editable (HR approver, line
+  managers, finance head per entity, CEO). Admins can act after approval:
+  reopen an approved invoice for re-approval, reassign a pending approver,
+  amend GL coding or client-PO mapping. Every override requires a written
+  reason and appends to the audit log — overrides never delete history.
+  (Audit log viewer pulled forward from Phase 4 to support this.)
 - **Multi-currency**: invoice currency ≠ functional currency ≠ reporting
   currency. FX rate captured at booking and at payment; realized FX gain/loss
   on settlement; consolidated views in GBP.
@@ -78,9 +88,11 @@ with role queues, payment batches with dual control, anomaly detection
   supplier cost), and a sign-off checklist per entity ("all supplier APs taken
   care of and mapped").
 - **IR35 (UK entity)**: engagement-level status determination (inside/outside),
-  SDS document on file, expiry alerts; inside-IR35 invoices flagged for deemed
-  payment handling and blocked from standard payment run until payroll
-  processing confirmed. Equivalent placeholders for DE AÜG and IN TDS.
+  SDS document on file, expiry alerts. **Mixed routing (decided)**: each
+  inside-IR35 engagement is flagged `umbrella` (verify umbrella + SDS, pay
+  umbrella invoice normally) or `payroll` (block standard payment run, hand off
+  to payroll deemed-payment processing). Equivalent placeholders for DE AÜG and
+  IN TDS.
 - **Credit notes & partial payments**: negative documents linked to original
   invoice; partial allocation against balance.
 - **Recurring invoices**: retainer schedules auto-generate monthly drafts
@@ -144,11 +156,18 @@ with role queues, payment batches with dual control, anomaly detection
 | 5 | AI depth: email ingest, term check, forecast, copilot actions | demo |
 | 6 | Production hardening: Supabase, real auth/RLS, Claude API, then integrations (Xero first) | production |
 
-## 8. Open questions
+## 8. Decisions log
+
+- Approval chain: fixed 4 levels, every invoice, any amount (user decision;
+  auto-approve recommendation recorded and declined).
+- CEO step: always in chain.
+- IR35 deemed payments: **mix** — per-engagement route flag, umbrella or payroll.
+- Client PO source: **both** — in-product register + CSV import.
+- Entity management: admin-managed in product (add/edit/deactivate).
+- Post-approval overrides: allowed for admins, reason required, audit-logged.
+
+## 9. Open questions
 
 1. Reporting currency confirmed GBP? (assumed — group HQ is UK)
-2. Client PO data source — manual entry now, CRM/ERP import later?
-3. IR35: does the UK entity run deemed payments through its own payroll, or via
-   umbrella companies? (changes the blocking rule)
-4. Which accounting system is live per entity today? (drives integration order
+2. Which accounting system is live per entity today? (drives integration order
    — Xero assumed first)

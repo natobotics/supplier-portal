@@ -1,7 +1,36 @@
-import type { Supplier, PurchaseOrder, Invoice, PaymentBatch, Activity, ApprovalStep } from './types'
+import type {
+  Supplier, PurchaseOrder, Invoice, PaymentBatch, Activity, ApprovalStep,
+  Entity, ClientPO, IR35Info, RecurringSchedule, AuditEvent, AdminConfig,
+} from './types'
 import { PEOPLE } from './types'
 
-export const suppliers: Supplier[] = [
+export const entities: Entity[] = [
+  { id: 'ent-uk', name: 'NCons UK Ltd', country: 'United Kingdom', currency: 'GBP', taxRegime: 'VAT · IR35 off-payroll', active: true },
+  { id: 'ent-us', name: 'NCons USA Inc', country: 'United States', currency: 'USD', taxRegime: '1099 / W-9', active: true },
+  { id: 'ent-de', name: 'NCons GmbH', country: 'Germany', currency: 'EUR', taxRegime: 'VAT · AÜG labor leasing', active: true },
+  { id: 'ent-es', name: 'NCons España SL', country: 'Spain', currency: 'EUR', taxRegime: 'VAT', active: true },
+  { id: 'ent-nl', name: 'NCons Netherlands BV', country: 'Netherlands', currency: 'EUR', taxRegime: 'VAT', active: true },
+  { id: 'ent-pl', name: 'NCons Poland Sp. z o.o.', country: 'Poland', currency: 'PLN', taxRegime: 'VAT', active: true },
+  { id: 'ent-ae', name: 'NCons FZ-LLC', country: 'UAE (Dubai)', currency: 'AED', taxRegime: 'VAT 5%', active: true },
+  { id: 'ent-in', name: 'NCons India Pvt Ltd', country: 'India', currency: 'INR', taxRegime: 'GST · TDS withholding', active: true },
+  { id: 'ent-sg', name: 'NCons Singapore Pte Ltd', country: 'Singapore', currency: 'SGD', taxRegime: 'GST', active: true },
+  { id: 'ent-se', name: 'NCons Sweden AB', country: 'Sweden', currency: 'SEK', taxRegime: 'VAT', active: true },
+]
+
+export const clientPOs: ClientPO[] = [
+  { id: 'cpo-01', number: 'ACME-PO-2231', client: 'Acme Industrial', entityId: 'ent-uk', currency: 'GBP', value: 64000, engagement: 'Network ops support — Acme DC programme', status: 'open' },
+  { id: 'cpo-02', number: 'GLX-4471', client: 'Globex AG', entityId: 'ent-de', currency: 'EUR', value: 78000, engagement: 'Platform engineering — Globex cloud', status: 'open' },
+  { id: 'cpo-03', number: 'INI-2026-118', client: 'Initech LLC', entityId: 'ent-us', currency: 'USD', value: 96000, engagement: 'Managed infrastructure — Initech', status: 'open' },
+  { id: 'cpo-04', number: 'ACME-PO-2240', client: 'Acme Industrial', entityId: 'ent-uk', currency: 'GBP', value: 120000, engagement: 'Recruitment ramp — Acme engineering hires', status: 'open' },
+  { id: 'cpo-05', number: 'UMB-887', client: 'Umbra Retail Group', entityId: 'ent-es', currency: 'EUR', value: 41000, engagement: 'Cloud migration — Umbra', status: 'open' },
+  { id: 'cpo-06', number: 'NRD-2026-09', client: 'Nordia Bank', entityId: 'ent-sg', currency: 'SGD', value: 30000, engagement: 'APAC smart hands — Nordia DCs', status: 'open' },
+]
+
+type SupplierRaw = Omit<Supplier, 'entityId' | 'currency'>
+type PORaw = Omit<PurchaseOrder, 'entityId' | 'clientPoId' | 'ir35'>
+type InvoiceRaw = Omit<Invoice, 'entityId' | 'docType' | 'costType' | 'clientPoId' | 'linkedInvoiceId'>
+
+const suppliersRaw: SupplierRaw[] = [
   // ---- Sub-contractors (recruitment) ----
   {
     id: 'sup-01', name: 'TalentBridge Recruitment', segment: 'subcontractor', category: 'Recruitment — Contract Placements',
@@ -91,7 +120,42 @@ export const suppliers: Supplier[] = [
   },
 ]
 
-export const purchaseOrders: PurchaseOrder[] = [
+// entity + billing currency per supplier
+const SUPPLIER_META: Record<string, { entityId: string; currency: string }> = {
+  'sup-01': { entityId: 'ent-uk', currency: 'GBP' },
+  'sup-02': { entityId: 'ent-uk', currency: 'GBP' },
+  // Korva (German exec-search firm) bills the UK entity in EUR —
+  // demonstrates multiple transaction currencies inside one entity.
+  'sup-03': { entityId: 'ent-uk', currency: 'EUR' },
+  'sup-04': { entityId: 'ent-uk', currency: 'GBP' },
+  'sup-05': { entityId: 'ent-uk', currency: 'GBP' },
+  'sup-06': { entityId: 'ent-es', currency: 'EUR' },
+  'sup-07': { entityId: 'ent-de', currency: 'EUR' },
+  'sup-08': { entityId: 'ent-sg', currency: 'SGD' },
+  'sup-09': { entityId: 'ent-nl', currency: 'EUR' },
+  'sup-10': { entityId: 'ent-us', currency: 'USD' },
+  'sup-11': { entityId: 'ent-uk', currency: 'GBP' },
+  'sup-12': { entityId: 'ent-us', currency: 'USD' },
+}
+
+export const suppliers: Supplier[] = suppliersRaw.map((s) => ({
+  ...s,
+  ...SUPPLIER_META[s.id],
+}))
+
+// IR35 / client-PO linkage per purchase order
+const PO_META: Record<string, { clientPoId?: string; ir35?: IR35Info }> = {
+  'po-01': { clientPoId: 'cpo-01', ir35: { status: 'outside', sdsOnFile: true, sdsExpiry: '2026-12-31', note: 'SDS reviewed Apr 2026 — genuine substitution clause exercised once.' } },
+  'po-02': { clientPoId: 'cpo-05', ir35: { status: 'not_applicable', sdsOnFile: false, note: 'Spain engagement — IR35 not applicable. AÜG-equivalent check n/a.' } },
+  'po-03': { clientPoId: 'cpo-02', ir35: { status: 'not_applicable', sdsOnFile: false, note: 'Germany engagement — monitor AÜG labor-leasing exposure instead.' } },
+  'po-04': { clientPoId: 'cpo-06', ir35: { status: 'not_applicable', sdsOnFile: false, note: 'Singapore engagement.' } },
+  'po-05': { clientPoId: 'cpo-04', ir35: { status: 'inside', route: 'payroll', sdsOnFile: true, sdsExpiry: '2026-09-30', note: 'Placed recruiters deemed inside — payments route via UK payroll deemed-payment run.' } },
+  'po-06': { clientPoId: 'cpo-03' },
+  'po-07': {},
+  'po-08': { clientPoId: 'cpo-01', ir35: { status: 'inside', route: 'umbrella', sdsOnFile: false, note: 'Inside IR35 via Bright Umbrella Ltd — SDS pending, chase before first invoice.' } },
+}
+
+const poRaw: PORaw[] = [
   {
     id: 'po-01', number: 'PO-2026-0007', supplierId: 'sup-05',
     title: 'Smart hands — DC support Q2/Q3', budgetOwner: PEOPLE.engManager, costCenter: 'CC-310 · Network Ops',
@@ -153,6 +217,12 @@ export const purchaseOrders: PurchaseOrder[] = [
   },
 ]
 
+export const purchaseOrders: PurchaseOrder[] = poRaw.map((p) => ({
+  ...p,
+  entityId: SUPPLIER_META[p.supplierId].entityId,
+  ...PO_META[p.id],
+}))
+
 // Fixed 4-level chain on every invoice: AP → (HR | Line Manager | Budget Owner) → Finance Head → CEO
 function chain(
   step2: { approver: string; role: ApprovalStep['role'] },
@@ -184,7 +254,7 @@ const SM2 = { approver: PEOPLE.serviceManager, role: 'Line Manager' as const }
 const BO_ENG = { approver: PEOPLE.engManager, role: 'Budget Owner' as const }
 const BO_SVC = { approver: PEOPLE.serviceManager, role: 'Budget Owner' as const }
 
-export const invoices: Invoice[] = [
+const invoicesRaw: InvoiceRaw[] = [
   // ---- Captured (AI processed, entering queue) ----
   {
     id: 'inv-001', number: 'RP-2026-014', supplierId: 'sup-05', poId: 'po-01',
@@ -588,6 +658,107 @@ export const invoices: Invoice[] = [
   },
 ]
 
+// billable invoices inherit the client PO from their purchase order; overrides below
+const INVOICE_META: Record<string, { costType?: 'internal'; clientPoId?: string }> = {
+  'inv-002': { costType: 'internal' },               // network refresh hardware
+  'inv-007': { costType: 'internal' },               // laptop refresh
+  'inv-015': { costType: 'internal' },               // cloud usage
+  'inv-022': { costType: 'internal' },               // cloud usage (paid)
+  'inv-011': { clientPoId: 'cpo-03' },               // SOC fee re-billed to Initech
+  'inv-020': { clientPoId: 'cpo-03' },
+  'inv-021': { clientPoId: 'cpo-01' },               // Amara security review on Acme programme
+  // intentionally unmapped billable → assurance exceptions: inv-003 (Cobalt), inv-004 (Korva), inv-012/013 (PrimeStaff)
+}
+
+export const invoices: Invoice[] = [
+  ...invoicesRaw.map((i) => {
+    const meta = INVOICE_META[i.id] ?? {}
+    const viaPo = i.poId ? PO_META[i.poId]?.clientPoId : undefined
+    return {
+      ...i,
+      entityId: SUPPLIER_META[i.supplierId].entityId,
+      currency: SUPPLIER_META[i.supplierId].currency,
+      docType: 'invoice' as const,
+      costType: meta.costType ?? 'billable' as const,
+      clientPoId: meta.clientPoId ?? viaPo,
+    }
+  }),
+  // ---- Credit notes ----
+  {
+    id: 'cn-001', number: 'CN-TBR-0114', supplierId: 'sup-01', entityId: 'ent-uk',
+    docType: 'credit_note', costType: 'billable', clientPoId: 'cpo-04', linkedInvoiceId: 'inv-018',
+    poId: 'po-05', poNumber: 'PO-2026-0004',
+    issueDate: '2026-06-03', dueDate: '2026-06-03', receivedDate: '2026-06-04',
+    amount: -1960, currency: 'GBP', status: 'approval',
+    matchStatus: 'matched', source: 'email',
+    lines: [
+      { description: 'Credit — recruiter absence 2 days in April (ref TBR-2071)', qty: -2, unitPrice: 980, amount: -1960, glCode: '6430 · Recruitment Fees', glConfidence: 0.97 },
+    ],
+    extraction: [
+      { field: 'Supplier', value: 'TalentBridge Recruitment', confidence: 0.99 },
+      { field: 'Credit note #', value: 'CN-TBR-0114', confidence: 0.98 },
+      { field: 'Linked invoice', value: 'TBR-2071', confidence: 0.96 },
+      { field: 'Total', value: '-£1,960.00', confidence: 0.99 },
+    ],
+    approvals: chain(HR2, 1, ['2026-06-05']),
+    anomalies: [],
+  },
+  {
+    id: 'cn-002', number: 'CN-EM-002', supplierId: 'sup-06', entityId: 'ent-es',
+    docType: 'credit_note', costType: 'billable', clientPoId: 'cpo-05', linkedInvoiceId: 'inv-008',
+    poId: 'po-02', poNumber: 'PO-2026-0011',
+    issueDate: '2026-06-10', dueDate: '2026-06-10', receivedDate: '2026-06-10',
+    amount: -880, currency: 'EUR', status: 'review',
+    matchStatus: 'matched', source: 'portal',
+    lines: [
+      { description: 'Credit — 8 unconfirmed hours on EM-2026-09', qty: -8, unitPrice: 110, amount: -880, glCode: '6420 · Contract Labor', glConfidence: 0.98 },
+    ],
+    extraction: [
+      { field: 'Supplier', value: 'Elena Marquez', confidence: 0.99 },
+      { field: 'Credit note #', value: 'CN-EM-002', confidence: 0.98 },
+      { field: 'Linked invoice', value: 'EM-2026-09', confidence: 0.97 },
+      { field: 'Total', value: '-€880.00', confidence: 0.99 },
+    ],
+    approvals: chain(LM2, 0),
+    anomalies: [],
+  },
+]
+
+export const recurringSchedules: RecurringSchedule[] = [
+  { id: 'rec-01', supplierId: 'sup-11', poId: 'po-06', description: 'Managed SOC monthly fee', amount: 8400, currency: 'GBP', frequency: 'monthly', nextRun: '2026-07-01', active: true, entityId: 'ent-uk' },
+  { id: 'rec-02', supplierId: 'sup-10', description: 'Cloud usage + premium support', amount: 27100, currency: 'USD', frequency: 'monthly', nextRun: '2026-07-05', active: true, entityId: 'ent-us' },
+  { id: 'rec-03', supplierId: 'sup-01', poId: 'po-05', description: 'Contract recruiters ×3 monthly', amount: 29400, currency: 'GBP', frequency: 'monthly', nextRun: '2026-07-01', active: true, entityId: 'ent-uk' },
+]
+
+export const auditEvents: AuditEvent[] = [
+  { id: 'aud-01', ts: '2026-06-11 09:42', actor: 'Sarah Chen', role: 'AP Manager (admin)', action: 'Reassigned pending approver', target: 'PSS-1112 — step 2 HR: Priya Nair → Marta Kowalska (cover)', reason: 'Priya on leave Jun 10–17', kind: 'override' },
+  { id: 'aud-02', ts: '2026-06-10 17:05', actor: 'David Osei', role: 'Finance Head', action: 'Reopened approved invoice', target: 'TBR-2071 — GL recode 6420 → 6430 after audit query', reason: 'Misposted to Contract Labor; recruiter fees belong in 6430', kind: 'override' },
+  { id: 'aud-03', ts: '2026-06-10 14:20', actor: 'Ingrid Olsen', role: 'CEO', action: 'Approved (step 4 of 4)', target: 'YT-2026-03 — Yuki Tanaka, SGD 7,040', kind: 'approval' },
+  { id: 'aud-04', ts: '2026-06-09 11:12', actor: 'Sarah Chen', role: 'AP Manager (admin)', action: 'Amended client PO mapping', target: 'SNM-2026-06 → ACME-PO-2231 → corrected to INI-2026-118', reason: 'SOC service is re-billed to Initech, not Acme', kind: 'override' },
+  { id: 'aud-05', ts: '2026-06-08 16:40', actor: 'System', role: 'Scheduler', action: 'Recurring draft generated', target: 'rec-02 — Helix Cloud Services, USD 27,100 for July', kind: 'system' },
+  { id: 'aud-06', ts: '2026-06-08 10:02', actor: 'David Osei', role: 'Finance Head', action: 'Updated approver assignment', target: 'ent-de Finance Head: David Osei → Lukas Brandt', reason: 'Germany finance head hired', kind: 'config' },
+  { id: 'aud-07', ts: '2026-06-05 09:15', actor: 'Sarah Chen', role: 'AP Manager (admin)', action: 'Entity added', target: 'NCons Sweden AB (SEK) — active', kind: 'config' },
+  { id: 'aud-08', ts: '2026-06-04 13:30', actor: 'Priya Nair', role: 'HR', action: 'Approved (step 2 of 4)', target: 'TBR-2088 — TalentBridge, GBP 29,400', kind: 'approval' },
+]
+
+export const adminConfig: AdminConfig = {
+  hrApprover: PEOPLE.hr,
+  ceo: PEOPLE.ceo,
+  financeHeads: {
+    'ent-uk': PEOPLE.financeHead,
+    'ent-us': PEOPLE.financeHead,
+    'ent-de': 'Lukas Brandt',
+    'ent-es': PEOPLE.financeHead,
+    'ent-nl': PEOPLE.financeHead,
+    'ent-pl': PEOPLE.financeHead,
+    'ent-ae': PEOPLE.financeHead,
+    'ent-in': 'Anita Rao',
+    'ent-sg': 'Wei Lin Tan',
+    'ent-se': PEOPLE.financeHead,
+  },
+  lineManagers: [PEOPLE.engManager, PEOPLE.serviceManager],
+}
+
 export const paymentBatches: PaymentBatch[] = [
   { id: 'bat-061226', runDate: '2026-06-12', method: 'ACH', invoiceCount: 4, total: 49940, status: 'pending_release', savings: 756 },
   { id: 'bat-061926', runDate: '2026-06-19', method: 'ACH', invoiceCount: 3, total: 34140, status: 'draft', savings: 168 },
@@ -628,3 +799,5 @@ export const supplierById = (id: string) => suppliers.find((s) => s.id === id)!
 export const poById = (id: string) => purchaseOrders.find((p) => p.id === id)
 export const poBySupplier = (supplierId: string) =>
   purchaseOrders.filter((p) => p.supplierId === supplierId && p.status !== 'closed' && p.status !== 'draft')
+export const entityById = (id: string) => entities.find((e) => e.id === id)
+export const clientPoById = (id: string) => clientPOs.find((c) => c.id === id)

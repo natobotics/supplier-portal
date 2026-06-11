@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react'
 import { AlertTriangle, Mail, Upload, Rss, Globe, ChevronRight, Filter } from 'lucide-react'
 import { Card, StatusBadge, MatchBadge, Button } from '../components/ui'
-import { invoices, supplierById } from '../data'
+import { invoices, supplierById, entityById } from '../data'
+import { useEntity } from '../context'
 import { fmtMoney, fmtDateShort, daysOverdue, cls } from '../utils'
 import type { Invoice, InvoiceStatus } from '../types'
 
-const tabs: Array<{ id: InvoiceStatus | 'all' | 'overdue'; label: string }> = [
+const tabs: Array<{ id: InvoiceStatus | 'all' | 'overdue' | 'credit_notes'; label: string }> = [
   { id: 'all', label: 'All' },
   { id: 'review', label: 'Needs review' },
   { id: 'exception', label: 'Exceptions' },
@@ -13,6 +14,7 @@ const tabs: Array<{ id: InvoiceStatus | 'all' | 'overdue'; label: string }> = [
   { id: 'scheduled', label: 'Scheduled' },
   { id: 'overdue', label: 'Overdue' },
   { id: 'paid', label: 'Paid' },
+  { id: 'credit_notes', label: 'Credit notes' },
 ]
 
 const sourceIcon = {
@@ -25,14 +27,24 @@ const sourceIcon = {
 export function Invoices({ onOpen }: { onOpen: (inv: Invoice) => void }) {
   const [tab, setTab] = useState<(typeof tabs)[number]['id']>('all')
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const { entity } = useEntity()
+
+  const scoped = useMemo(
+    () => (entity === 'all' ? invoices : invoices.filter((i) => i.entityId === entity)),
+    [entity],
+  )
 
   const rows = useMemo(() => {
-    let list = invoices
-    if (tab === 'overdue')
-      list = list.filter((i) => i.status !== 'paid' && daysOverdue(i.dueDate) > 0)
-    else if (tab !== 'all') list = list.filter((i) => i.status === tab)
+    let list = scoped
+    if (tab === 'credit_notes') list = list.filter((i) => i.docType === 'credit_note')
+    else if (tab === 'overdue')
+      list = list.filter(
+        (i) => i.docType !== 'credit_note' && i.status !== 'paid' && daysOverdue(i.dueDate) > 0,
+      )
+    else if (tab !== 'all')
+      list = list.filter((i) => i.docType !== 'credit_note' && i.status === tab)
     return [...list].sort((a, b) => b.receivedDate.localeCompare(a.receivedDate))
-  }, [tab])
+  }, [tab, scoped])
 
   const toggle = (id: string) => {
     setSelected((prev) => {
@@ -44,16 +56,19 @@ export function Invoices({ onOpen }: { onOpen: (inv: Invoice) => void }) {
   }
 
   const counts = useMemo(() => {
-    const c: Record<string, number> = { all: invoices.length }
+    const std = scoped.filter((i) => i.docType !== 'credit_note')
+    const c: Record<string, number> = { all: scoped.length }
     for (const t of tabs) {
       if (t.id === 'all') continue
       c[t.id] =
-        t.id === 'overdue'
-          ? invoices.filter((i) => i.status !== 'paid' && daysOverdue(i.dueDate) > 0).length
-          : invoices.filter((i) => i.status === t.id).length
+        t.id === 'credit_notes'
+          ? scoped.filter((i) => i.docType === 'credit_note').length
+          : t.id === 'overdue'
+            ? std.filter((i) => i.status !== 'paid' && daysOverdue(i.dueDate) > 0).length
+            : std.filter((i) => i.status === t.id).length
     }
     return c
-  }, [])
+  }, [scoped])
 
   return (
     <div className="space-y-4 p-6">
@@ -122,6 +137,7 @@ export function Invoices({ onOpen }: { onOpen: (inv: Invoice) => void }) {
                 const s = supplierById(inv.supplierId)
                 const over = inv.status !== 'paid' && daysOverdue(inv.dueDate) > 0
                 const SourceIcon = sourceIcon[inv.source]
+                const entityShort = entityById(inv.entityId)?.name.replace(/^NCons /, '')
                 return (
                   <tr
                     key={inv.id}
@@ -140,6 +156,11 @@ export function Invoices({ onOpen }: { onOpen: (inv: Invoice) => void }) {
                     <td className="px-3 py-3">
                       <div className="flex items-center gap-1.5">
                         <span className="font-mono text-[13px] font-medium text-ink">{inv.number}</span>
+                        {inv.docType === 'credit_note' && (
+                          <span className="rounded-full bg-info-soft px-1.5 py-0.5 text-[10px] font-semibold text-secondary">
+                            CN
+                          </span>
+                        )}
                         {inv.anomalies.length > 0 && (
                           <AlertTriangle
                             size={13}
@@ -158,7 +179,10 @@ export function Invoices({ onOpen }: { onOpen: (inv: Invoice) => void }) {
                     </td>
                     <td className="px-3 py-3">
                       <p className="max-w-44 truncate font-medium text-ink">{s.name}</p>
-                      <p className="text-[11px] text-ink-faint">{s.category}</p>
+                      <p className="max-w-44 truncate text-[11px] text-ink-faint">
+                        {entity === 'all' && entityShort ? `${entityShort} · ` : ''}
+                        {s.category}
+                      </p>
                     </td>
                     <td className="px-3 py-3">
                       <StatusBadge status={inv.status} />
@@ -166,8 +190,13 @@ export function Invoices({ onOpen }: { onOpen: (inv: Invoice) => void }) {
                     <td className="px-3 py-3">
                       <MatchBadge status={inv.matchStatus} />
                     </td>
-                    <td className="tabular px-3 py-3 text-right font-mono font-medium text-ink">
-                      {fmtMoney(inv.amount)}
+                    <td
+                      className={cls(
+                        'tabular px-3 py-3 text-right font-mono font-medium',
+                        inv.amount < 0 ? 'text-danger' : 'text-ink',
+                      )}
+                    >
+                      {fmtMoney(inv.amount, inv.currency)}
                     </td>
                     <td className="px-3 py-3">
                       <span className={cls('text-[13px] whitespace-nowrap', over ? 'font-medium text-danger' : 'text-ink-soft')}>

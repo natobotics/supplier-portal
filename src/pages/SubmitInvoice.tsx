@@ -12,7 +12,8 @@ import {
   Send,
 } from 'lucide-react'
 import { Card, CardHeader, Button } from '../components/ui'
-import { suppliers, poBySupplier, poById, supplierById } from '../data'
+import { suppliers, poBySupplier, poById, supplierById, entityById } from '../data'
+import { supplierTaxId } from '../compliance/rules'
 import { fmtMoney, fmtDateShort, cls } from '../utils'
 import { PEOPLE } from '../types'
 import type { ApproverRole, PurchaseOrder, SupplierSegment } from '../types'
@@ -93,6 +94,9 @@ export function SubmitInvoice() {
   const line = po?.lines[0]
   const qtyUnit = line && line.unit !== 'fixed' ? line.unit : null
   const remaining = po ? po.notToExceed - po.billedToDate : 0
+
+  const taxReg = supplier ? supplierTaxId(supplier.id) : undefined
+  const supplierEntity = supplier ? entityById(supplier.entityId) : undefined
 
   const qtyNum = parseFloat(qty) || 0
   const amount = qtyUnit && line ? qtyNum * line.rate : parseFloat(amountStr) || 0
@@ -417,6 +421,27 @@ export function SubmitInvoice() {
                     )}
                   </span>
                 </p>
+                {taxReg ? (
+                  <p className="flex items-start gap-2 text-[13px] text-ink-soft">
+                    <CheckCircle2
+                      size={14}
+                      className="mt-0.5 shrink-0 text-accent"
+                      aria-hidden="true"
+                    />
+                    <span>
+                      Tax registration on file ({taxReg.kind}{' '}
+                      <span className="font-mono">{taxReg.id}</span>)
+                    </span>
+                  </p>
+                ) : (
+                  <p className="flex items-start gap-2 text-[13px] text-warn">
+                    <AlertTriangle size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
+                    <span>
+                      No tax registration on file — invoice will be flagged for{' '}
+                      {supplierEntity?.country ?? 'country'} compliance review
+                    </span>
+                  </p>
+                )}
                 {amount > 0 &&
                   (overrun > 0 ? (
                     <p className="flex items-start gap-2 text-[13px] text-danger">

@@ -5,6 +5,7 @@ import {
   XCircle,
   AlertTriangle,
   FileText,
+  FileMinus,
   Sparkles,
   ShieldAlert,
   Copy,
@@ -14,8 +15,10 @@ import {
   Gauge,
 } from 'lucide-react'
 import { Card, CardHeader, StatusBadge, MatchBadge, ConfidenceBar, Button } from '../components/ui'
-import { supplierById, poById } from '../data'
-import { fmtMoney, fmtDate, daysOverdue, cls } from '../utils'
+import { supplierById, poById, invoices, entityById, clientPoById } from '../data'
+import { fmtMoney, fmtDate, daysOverdue, cls, toGBP, fmtGBP } from '../utils'
+import { validateInvoice, complianceSummary, supplierTaxId } from '../compliance/rules'
+import type { CheckStatus } from '../compliance/rules'
 import type { Invoice, AnomalyType } from '../types'
 
 const anomalyIcon: Record<AnomalyType, typeof Copy> = {
@@ -27,6 +30,21 @@ const anomalyIcon: Record<AnomalyType, typeof Copy> = {
   po_overrun: Gauge,
 }
 
+const verdictPill: Record<
+  ReturnType<typeof complianceSummary>['verdict'],
+  { label: string; cls: string }
+> = {
+  compliant: { label: 'Compliant', cls: 'bg-accent-soft text-accent' },
+  review: { label: 'Needs review', cls: 'bg-warn-soft text-warn' },
+  non_compliant: { label: 'Non-compliant', cls: 'bg-danger-soft text-danger' },
+}
+
+const checkIcon: Record<CheckStatus, { Icon: typeof CheckCircle2; cls: string }> = {
+  pass: { Icon: CheckCircle2, cls: 'text-accent' },
+  warn: { Icon: AlertTriangle, cls: 'text-warn' },
+  fail: { Icon: XCircle, cls: 'text-danger' },
+}
+
 export function InvoiceDetail({ invoice, onBack }: { invoice: Invoice; onBack: () => void }) {
   const s = supplierById(invoice.supplierId)
   const over = invoice.status !== 'paid' && daysOverdue(invoice.dueDate) > 0
@@ -36,6 +54,15 @@ export function InvoiceDetail({ invoice, onBack }: { invoice: Invoice; onBack: (
   const poPct = po ? Math.round((po.billedToDate / po.notToExceed) * 100) : 0
   const poRemaining = po ? po.notToExceed - po.billedToDate - invoice.amount : 0
   const unconfirmedHrs = 8
+  const isCreditNote = invoice.docType === 'credit_note'
+  const linkedInvoice = invoice.linkedInvoiceId
+    ? invoices.find((i) => i.id === invoice.linkedInvoiceId)
+    : undefined
+  const billingEntity = entityById(invoice.entityId)
+  const clientPo = invoice.clientPoId ? clientPoById(invoice.clientPoId) : undefined
+  const complianceChecks = billingEntity ? validateInvoice(invoice, s, billingEntity) : []
+  const verdict = complianceSummary(complianceChecks).verdict
+  const taxReg = supplierTaxId(s.id)
 
   return (
     <div className="space-y-4 p-6">
@@ -56,7 +83,14 @@ export function InvoiceDetail({ invoice, onBack }: { invoice: Invoice; onBack: (
               <MatchBadge status={invoice.matchStatus} />
             </div>
             <p className="mt-0.5 text-[13px] text-ink-soft">
-              {s.name} · {fmtMoney(invoice.amount)} · due {fmtDate(invoice.dueDate)}
+              {s.name} · {fmtMoney(invoice.amount, invoice.currency)}
+              {invoice.currency !== 'GBP' && (
+                <span className="text-[11px] text-ink-faint">
+                  {' '}
+                  · ≈ {fmtGBP(toGBP(invoice.amount, invoice.currency))}
+                </span>
+              )}{' '}
+              · due {fmtDate(invoice.dueDate)}
               {over && (
                 <span className="font-medium text-danger"> · {daysOverdue(invoice.dueDate)} days late</span>
               )}
@@ -69,6 +103,21 @@ export function InvoiceDetail({ invoice, onBack }: { invoice: Invoice; onBack: (
           <Button>Approve</Button>
         </div>
       </div>
+
+      {/* Credit note banner */}
+      {isCreditNote && (
+        <div className="flex items-center gap-2.5 rounded-lg border border-primary/20 bg-info-soft px-4 py-3">
+          <FileMinus size={15} className="shrink-0 text-secondary" aria-hidden="true" />
+          <p className="text-[13px] text-ink">
+            Credit note — applies against{' '}
+            {linkedInvoice ? (
+              <span className="font-mono font-medium">{linkedInvoice.number}</span>
+            ) : (
+              'the original invoice'
+            )}
+          </p>
+        </div>
+      )}
 
       {/* Anomalies */}
       {invoice.anomalies.length > 0 && (
@@ -144,10 +193,15 @@ export function InvoiceDetail({ invoice, onBack }: { invoice: Invoice; onBack: (
                         {l.qty.toLocaleString()}
                       </td>
                       <td className="tabular px-3 py-2.5 text-right font-mono text-[13px] text-ink-soft">
-                        {fmtMoney(l.unitPrice)}
+                        {fmtMoney(l.unitPrice, invoice.currency)}
                       </td>
-                      <td className="tabular px-3 py-2.5 text-right font-mono text-[13px] font-medium text-ink">
-                        {fmtMoney(l.amount)}
+                      <td
+                        className={cls(
+                          'tabular px-3 py-2.5 text-right font-mono text-[13px] font-medium',
+                          l.amount < 0 ? 'text-danger' : 'text-ink',
+                        )}
+                      >
+                        {fmtMoney(l.amount, invoice.currency)}
                       </td>
                       <td className="px-3 py-2.5 text-[12px] whitespace-nowrap text-ink-soft">{l.glCode}</td>
                       <td className="py-2.5 pl-3">
@@ -161,8 +215,13 @@ export function InvoiceDetail({ invoice, onBack }: { invoice: Invoice; onBack: (
                     <td colSpan={3} className="py-2.5 pr-3 text-right text-[13px] font-medium text-ink-soft">
                       Total
                     </td>
-                    <td className="tabular px-3 py-2.5 text-right font-mono text-sm font-semibold text-ink">
-                      {fmtMoney(invoice.amount)}
+                    <td
+                      className={cls(
+                        'tabular px-3 py-2.5 text-right font-mono text-sm font-semibold',
+                        invoice.amount < 0 ? 'text-danger' : 'text-ink',
+                      )}
+                    >
+                      {fmtMoney(invoice.amount, invoice.currency)}
                     </td>
                     <td colSpan={2} />
                   </tr>
@@ -196,13 +255,18 @@ export function InvoiceDetail({ invoice, onBack }: { invoice: Invoice; onBack: (
               <CardHeader title="3-way match" subtitle="Invoice ↔ PO ↔ timesheet/receipt" />
               <div className="grid gap-3 p-5 pt-2 sm:grid-cols-3">
                 {[
-                  { label: 'Invoice', value: fmtMoney(invoice.amount), ok: true, note: invoice.number },
+                  {
+                    label: 'Invoice',
+                    value: fmtMoney(invoice.amount, invoice.currency),
+                    ok: true,
+                    note: invoice.number,
+                  },
                   {
                     label: 'Purchase order',
                     value:
                       invoice.matchStatus === 'price_variance'
-                        ? fmtMoney(invoice.amount * 0.93)
-                        : fmtMoney(invoice.amount),
+                        ? fmtMoney(invoice.amount * 0.93, invoice.currency)
+                        : fmtMoney(invoice.amount, invoice.currency),
                     ok: invoice.matchStatus !== 'price_variance',
                     note: invoice.poNumber,
                   },
@@ -248,6 +312,58 @@ export function InvoiceDetail({ invoice, onBack }: { invoice: Invoice; onBack: (
               </div>
             </Card>
           )}
+
+          {/* Country compliance */}
+          {billingEntity && (
+            <Card>
+              <CardHeader
+                title="Country compliance"
+                subtitle={`${billingEntity.country} processing rules`}
+                action={
+                  <span
+                    className={cls(
+                      'inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium whitespace-nowrap',
+                      verdictPill[verdict].cls,
+                    )}
+                  >
+                    {verdictPill[verdict].label}
+                  </span>
+                }
+              />
+              <ul className="divide-y divide-line px-5 pb-4">
+                {taxReg && (
+                  <li className="flex items-start gap-2.5 py-2.5">
+                    <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-accent" aria-hidden="true" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[13px] font-medium text-ink">Supplier tax registration</p>
+                      <p className="mt-0.5 text-[11px] text-ink-faint">
+                        {taxReg.kind} <span className="font-mono">{taxReg.id}</span> on file
+                      </p>
+                    </div>
+                  </li>
+                )}
+                {complianceChecks.map((c) => {
+                  const ic = checkIcon[c.status]
+                  return (
+                    <li key={c.id} className="flex items-start gap-2.5 py-2.5">
+                      <ic.Icon size={15} className={cls('mt-0.5 shrink-0', ic.cls)} aria-hidden="true" />
+                      <div className="min-w-0 flex-1">
+                        <p className="flex flex-wrap items-center gap-x-2 text-[13px] font-medium text-ink">
+                          {c.label}
+                          {c.severity === 'required' && (
+                            <span className="text-[10px] font-medium tracking-wide text-ink-faint uppercase">
+                              required
+                            </span>
+                          )}
+                        </p>
+                        <p className="mt-0.5 text-[11px] text-ink-faint">{c.detail}</p>
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            </Card>
+          )}
         </div>
 
         {/* Right: approvals + supplier + discount */}
@@ -289,6 +405,48 @@ export function InvoiceDetail({ invoice, onBack }: { invoice: Invoice; onBack: (
                 </li>
               ))}
             </ol>
+          </Card>
+
+          <Card>
+            <CardHeader title="Billing" subtitle="Entity, cost type and client PO mapping" />
+            <div className="px-5 pb-5 text-[13px]">
+              <dl className="space-y-2 text-ink-soft">
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-ink-faint">Entity</dt>
+                  <dd className="font-medium text-ink">{billingEntity?.name ?? invoice.entityId}</dd>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <dt className="text-ink-faint">Cost type</dt>
+                  <dd>
+                    <span
+                      className={cls(
+                        'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium capitalize',
+                        invoice.costType === 'billable'
+                          ? 'bg-accent-soft text-accent'
+                          : 'border border-line bg-canvas text-ink-soft',
+                      )}
+                    >
+                      {invoice.costType}
+                    </span>
+                  </dd>
+                </div>
+                <div className="flex items-start justify-between gap-3">
+                  <dt className="text-ink-faint">Client PO</dt>
+                  {clientPo ? (
+                    <dd className="text-right">
+                      <span className="font-mono text-[13px] font-medium text-ink">{clientPo.number}</span>
+                      <span className="block text-[11px] text-ink-faint">{clientPo.client}</span>
+                    </dd>
+                  ) : invoice.costType === 'billable' ? (
+                    <dd className="text-right text-xs font-medium text-warn">
+                      Not mapped — assign in Month-end
+                    </dd>
+                  ) : (
+                    <dd className="text-ink-faint">—</dd>
+                  )}
+                </div>
+              </dl>
+            </div>
           </Card>
 
           {invoice.discount && (

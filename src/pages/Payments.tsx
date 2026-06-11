@@ -1,7 +1,9 @@
-import { Landmark, Percent, ShieldCheck, ChevronRight, Sparkles } from 'lucide-react'
+import { useState } from 'react'
+import { Landmark, Percent, ShieldCheck, ChevronRight, Sparkles, Repeat, CheckCircle2 } from 'lucide-react'
 import { Card, CardHeader, Button } from '../components/ui'
-import { paymentBatches, invoices, supplierById } from '../data'
-import { fmtMoney, fmtCompact, fmtDate, cls, daysOverdue } from '../utils'
+import { paymentBatches, invoices, recurringSchedules, supplierById } from '../data'
+import { fmtMoney, fmtDate, cls, daysOverdue } from '../utils'
+import { useEntity } from '../context'
 
 const statusMap = {
   draft: { label: 'Draft', cls: 'bg-canvas text-ink-soft border border-line' },
@@ -11,6 +13,15 @@ const statusMap = {
 }
 
 export function Payments() {
+  const { entity } = useEntity()
+  const [recurringActive, setRecurringActive] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(recurringSchedules.map((r) => [r.id, r.active])),
+  )
+  const [draftFor, setDraftFor] = useState<string | null>(null)
+
+  const schedules =
+    entity === 'all' ? recurringSchedules : recurringSchedules.filter((r) => r.entityId === entity)
+
   const discountable = invoices.filter(
     (i) =>
       i.status !== 'paid' &&
@@ -67,6 +78,86 @@ export function Payments() {
         </div>
       </Card>
 
+      {/* Recurring invoices */}
+      <Card>
+        <CardHeader
+          title="Recurring invoices"
+          subtitle="Retainers auto-draft monthly against their PO"
+        />
+        <div className="space-y-2.5 p-5 pt-2">
+          {draftFor && (
+            <div
+              role="status"
+              className="flex items-center gap-2 rounded-lg bg-accent-soft px-4 py-2.5 text-[13px] text-accent"
+            >
+              <CheckCircle2 size={14} aria-hidden="true" />
+              <span>
+                <span className="font-semibold">Draft created in Capture queue</span> — {draftFor}
+              </span>
+            </div>
+          )}
+          {schedules.map((r) => {
+            const s = supplierById(r.supplierId)
+            const isActive = recurringActive[r.id]
+            return (
+              <div
+                key={r.id}
+                className="flex flex-wrap items-center gap-3 rounded-lg border border-line bg-canvas px-4 py-3"
+              >
+                <Repeat size={15} className="text-ink-faint" aria-hidden="true" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-medium text-ink">{r.description}</p>
+                  <p className="text-[11px] text-ink-faint">
+                    {s.name} · next run {fmtDate(r.nextRun)}
+                  </p>
+                </div>
+                <span className="tabular font-mono text-sm font-semibold text-ink">
+                  {fmtMoney(r.amount, r.currency)}
+                </span>
+                <span className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={isActive}
+                    aria-label={`Recurring schedule active — ${r.description}`}
+                    onClick={() =>
+                      setRecurringActive((prev) => ({ ...prev, [r.id]: !prev[r.id] }))
+                    }
+                    className={cls(
+                      'relative h-5 w-9 shrink-0 cursor-pointer rounded-full transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
+                      isActive ? 'bg-accent' : 'bg-line',
+                    )}
+                  >
+                    <span
+                      className={cls(
+                        'absolute top-0.5 left-0.5 block h-4 w-4 rounded-full bg-surface shadow-sm transition-transform duration-200',
+                        isActive && 'translate-x-4',
+                      )}
+                    />
+                  </button>
+                  <span
+                    className={cls(
+                      'w-10 text-[11px] font-medium',
+                      isActive ? 'text-accent' : 'text-ink-faint',
+                    )}
+                  >
+                    {isActive ? 'Active' : 'Paused'}
+                  </span>
+                </span>
+                <Button variant="ghost" onClick={() => setDraftFor(r.description)}>
+                  Generate draft now
+                </Button>
+              </div>
+            )
+          })}
+          {schedules.length === 0 && (
+            <p className="py-4 text-center text-sm text-ink-faint">
+              No recurring schedules for this entity.
+            </p>
+          )}
+        </div>
+      </Card>
+
       {/* Upcoming runs */}
       <Card>
         <CardHeader title="Payment runs" subtitle="Batches awaiting release require dual control" action={<Button>New payment run</Button>} />
@@ -90,7 +181,10 @@ export function Payments() {
                   )}
                 </p>
               </div>
-              <span className="tabular font-mono text-base font-semibold text-ink">{fmtMoney(b.total)}</span>
+              <span className="tabular font-mono text-base font-semibold text-ink">
+                {fmtMoney(b.total, 'GBP')}{' '}
+                <span className="text-[11px] font-normal text-ink-faint">GBP</span>
+              </span>
               {b.status === 'pending_release' ? (
                 <Button>
                   <ShieldCheck size={14} aria-hidden="true" /> Release
@@ -135,7 +229,10 @@ export function Payments() {
                     {fmtDate(b.runDate)} · {b.invoiceCount} invoices · saved {fmtMoney(b.savings)}
                   </p>
                 </div>
-                <span className="tabular font-mono text-sm font-semibold text-ink">{fmtCompact(b.total)}</span>
+                <span className="tabular font-mono text-sm font-semibold text-ink">
+                  {fmtMoney(b.total, 'GBP')}{' '}
+                  <span className="text-[10px] font-normal text-ink-faint">GBP</span>
+                </span>
                 <span className={cls('rounded-full px-2 py-0.5 text-[11px] font-medium', statusMap[b.status].cls)}>
                   Settled
                 </span>

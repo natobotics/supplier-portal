@@ -1,12 +1,16 @@
 import { useState } from 'react'
 import { Search, CheckCircle2, XCircle, Clock, UserPlus } from 'lucide-react'
 import { Card, RiskBadge, Button } from '../components/ui'
-import { suppliers } from '../data'
-import { fmtCompact, cls } from '../utils'
+import { suppliers, entityById } from '../data'
+import { fmtMoney, fmtGBP, toGBP, convert, cls } from '../utils'
+import { useEntity } from '../context'
 
 export function Suppliers() {
+  const { entity } = useEntity()
   const [q, setQ] = useState('')
-  const rows = suppliers.filter(
+
+  const scoped = entity === 'all' ? suppliers : suppliers.filter((s) => s.entityId === entity)
+  const rows = scoped.filter(
     (s) =>
       s.name.toLowerCase().includes(q.toLowerCase()) ||
       s.category.toLowerCase().includes(q.toLowerCase()),
@@ -18,6 +22,19 @@ export function Suppliers() {
     if (!s.bankVerified) issues.push('bank unverified')
     return issues
   }
+
+  const entityShort = (id: string) => entityById(id)?.name.replace(/^NCons\s+/, '') ?? '—'
+
+  // Group view sums mixed currencies in GBP; entity view converts each supplier's
+  // document-currency spend into the entity's functional currency before summing.
+  const entCcy = entityById(entity)?.currency ?? 'GBP'
+  const ytdSpendTotal =
+    entity === 'all'
+      ? fmtGBP(scoped.reduce((t, x) => t + toGBP(x.ytdSpend, x.currency), 0))
+      : fmtMoney(
+          scoped.reduce((t, x) => t + convert(x.ytdSpend, x.currency, entCcy), 0),
+          entCcy,
+        )
 
   return (
     <div className="space-y-4 p-6">
@@ -41,10 +58,22 @@ export function Suppliers() {
       {/* Onboarding funnel */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {[
-          { label: 'Active suppliers', value: '12', sub: '9 portal-enabled' },
+          {
+            label: 'Active suppliers',
+            value: String(scoped.length),
+            sub: entity === 'all' ? '9 portal-enabled' : entityShort(entity),
+          },
           { label: 'Onboarding', value: '2', sub: 'Cobalt, Ironpeak pending docs' },
-          { label: 'Compliance gaps', value: '3', sub: 'W-9 or bank verification' },
-          { label: 'YTD spend', value: fmtCompact(suppliers.reduce((s, x) => s + x.ytdSpend, 0)), sub: 'across all suppliers' },
+          {
+            label: 'Compliance gaps',
+            value: String(scoped.filter((s) => compliance(s).length > 0).length),
+            sub: 'W-9 or bank verification',
+          },
+          {
+            label: 'YTD spend',
+            value: ytdSpendTotal,
+            sub: entity === 'all' ? 'across all suppliers · GBP' : 'across entity suppliers',
+          },
         ].map((k) => (
           <Card key={k.label} className="p-4">
             <p className="text-xs font-medium text-ink-soft">{k.label}</p>
@@ -60,6 +89,7 @@ export function Suppliers() {
             <thead>
               <tr className="border-b border-line bg-canvas text-left text-[11px] font-semibold tracking-wide text-ink-faint uppercase">
                 <th className="px-4 py-3">Supplier</th>
+                <th className="px-3 py-3">Entity</th>
                 <th className="px-3 py-3">Terms</th>
                 <th className="px-3 py-3">Method</th>
                 <th className="px-3 py-3">Compliance</th>
@@ -88,6 +118,9 @@ export function Suppliers() {
                       </div>
                     </td>
                     <td className="px-3 py-3 whitespace-nowrap text-ink-soft">
+                      {entityShort(s.entityId)}
+                    </td>
+                    <td className="px-3 py-3 whitespace-nowrap text-ink-soft">
                       {s.paymentTerms}
                       {s.discountTerms && (
                         <span className="block text-[11px] text-accent">{s.discountTerms}</span>
@@ -113,11 +146,12 @@ export function Suppliers() {
                     <td className="px-3 py-3">
                       <RiskBadge level={s.riskLevel} />
                     </td>
-                    <td className="tabular px-3 py-3 text-right font-mono font-medium text-ink">
-                      {fmtCompact(s.ytdSpend)}
+                    <td className="tabular px-3 py-3 text-right font-mono font-medium whitespace-nowrap text-ink">
+                      {fmtMoney(s.ytdSpend, s.currency)}{' '}
+                      <span className="text-[10px] font-normal text-ink-faint">{s.currency}</span>
                     </td>
-                    <td className="tabular px-3 py-3 text-right font-mono text-ink-soft">
-                      {fmtCompact(s.openBalance)}
+                    <td className="tabular px-3 py-3 text-right font-mono whitespace-nowrap text-ink-soft">
+                      {fmtMoney(s.openBalance, s.currency)}
                     </td>
                     <td className={cls('tabular px-3 py-3 text-right font-mono', s.avgPayDays > 40 ? 'text-warn' : 'text-ink-soft')}>
                       {s.avgPayDays || '—'}

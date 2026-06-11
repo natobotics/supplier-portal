@@ -12,6 +12,12 @@ import { Approvals } from './pages/Approvals'
 import { Payments } from './pages/Payments'
 import { Suppliers } from './pages/Suppliers'
 import { Reports } from './pages/Reports'
+import { ClientPOs } from './pages/ClientPOs'
+import { Assurance } from './pages/Assurance'
+import { Compliance } from './pages/Compliance'
+import { Entities } from './pages/Entities'
+import { Admin } from './pages/Admin'
+import { EntityProvider } from './context'
 import type { Page, Invoice } from './types'
 
 const titles: Record<Page, string> = {
@@ -23,6 +29,11 @@ const titles: Record<Page, string> = {
   approvals: 'Approvals',
   payments: 'Payments',
   suppliers: 'Suppliers',
+  clientpos: 'Client purchase orders',
+  assurance: 'Month-end assurance',
+  compliance: 'IR35 & compliance',
+  entities: 'Entities',
+  admin: 'Admin console',
   reports: 'Reports',
 }
 
@@ -42,6 +53,7 @@ export default function App() {
   }
 
   return (
+    <EntityProvider>
     <div className="flex h-screen overflow-hidden">
       <Sidebar page={page} onNavigate={navigate} onOpenCopilot={() => setCopilotOpen(true)} />
       <div className="flex min-w-0 flex-1 flex-col">
@@ -68,6 +80,16 @@ export default function App() {
             <Payments />
           ) : page === 'suppliers' ? (
             <Suppliers />
+          ) : page === 'clientpos' ? (
+            <ClientPOs />
+          ) : page === 'assurance' ? (
+            <Assurance />
+          ) : page === 'compliance' ? (
+            <Compliance />
+          ) : page === 'entities' ? (
+            <Entities />
+          ) : page === 'admin' ? (
+            <Admin />
           ) : (
             <Reports />
           )}
@@ -75,5 +97,6 @@ export default function App() {
       </div>
       <Copilot open={copilotOpen} onClose={() => setCopilotOpen(false)} />
     </div>
+    </EntityProvider>
   )
 }

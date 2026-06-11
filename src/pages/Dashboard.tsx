@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import {
   TrendingDown,
   TrendingUp,
@@ -25,27 +26,20 @@ import {
   Legend,
 } from 'recharts'
 import { Card, CardHeader, Button } from '../components/ui'
-import { invoices, activities, cashForecast, monthlyTrend, supplierById } from '../data'
-import { fmtMoney, fmtCompact, agingBucket, daysOverdue, cls } from '../utils'
-import type { Page } from '../types'
-
-const open = invoices.filter((i) => i.status !== 'paid' && i.status !== 'rejected')
-const outstanding = open.reduce((s, i) => s + i.amount, 0)
-const overdue = open.filter((i) => daysOverdue(i.dueDate) > 0)
-const overdueAmt = overdue.reduce((s, i) => s + i.amount, 0)
-const pendingApproval = invoices.filter((i) => i.approvals.some((a) => a.status === 'pending'))
-const pendingAmt = pendingApproval.reduce((s, i) => s + i.amount, 0)
-const anomalyCount = open.reduce((s, i) => s + i.anomalies.length, 0)
-const discountAvailable = open
-  .filter((i) => i.discount && daysOverdue(i.discount.deadline) <= 0)
-  .reduce((s, i) => s + (i.discount?.amount ?? 0), 0)
-
-const agingData = (['current', '1-30', '31-60', '61-90', '90+'] as const).map((bucket) => ({
-  bucket: bucket === 'current' ? 'Current' : bucket === '90+' ? '90+ days' : `${bucket} days`,
-  amount: open
-    .filter((i) => agingBucket(i.dueDate) === bucket)
-    .reduce((s, i) => s + i.amount, 0),
-}))
+import { invoices, activities, cashForecast, monthlyTrend, supplierById, entityById } from '../data'
+import {
+  fmtMoney,
+  fmtCompact,
+  fmtGBP,
+  toGBP,
+  convert,
+  REPORTING_CURRENCY,
+  agingBucket,
+  daysOverdue,
+  cls,
+} from '../utils'
+import { useEntity } from '../context'
+import type { Page, Invoice } from '../types'
 
 const touchlessData = monthlyTrend.map((m) => ({
   ...m,
@@ -91,47 +85,125 @@ function Kpi({
   )
 }
 
-const insights = [
-  {
-    icon: AlertTriangle,
-    tone: 'danger' as const,
-    title: '2 high-risk anomalies need attention',
-    body: 'Probable duplicate from Tom Becker — TB-0590 ($11,400) mirrors TB-0589, paid Jun 2 — and a bank-account change on Stellar IT Hardware before the $23,150 SIH-5521 payment.',
-    cta: 'Review exceptions',
-    page: 'invoices' as Page,
-  },
-  {
-    icon: Percent,
-    tone: 'accent' as const,
-    title: `${fmtMoney(discountAvailable)} in early-pay discounts expire today`,
-    body: 'TBR-2088 (TalentBridge, save $588) and SNM-2026-06 (SecureNet, save $168) both hit their 2/10 deadline today, Jun 11. Release payment today to capture both.',
-    cta: 'Open payments',
-    page: 'payments' as Page,
-  },
-  {
-    icon: Clock,
-    tone: 'warn' as const,
-    title: 'Rate violation on RP-2026-013',
-    body: 'Rajan Pillai billed $104.74/hr against the $95.00/hr rate on PO-2026-0007 (+10.3%). Supplier cites out-of-hours work — the PO carries no uplift clause.',
-    cta: 'View approvals',
-    page: 'approvals' as Page,
-  },
-]
-
 export function Dashboard({ onNavigate }: { onNavigate: (p: Page) => void }) {
+  const { entity } = useEntity()
+  const currency = entity === 'all' ? REPORTING_CURRENCY : entityById(entity)?.currency ?? REPORTING_CURRENCY
+
+  // Entity functional currency for a single entity; consolidated GBP for the group view.
+  const money = (n: number) => (entity === 'all' ? fmtGBP(n) : fmtMoney(n, currency))
+  const compact = (n: number) =>
+    new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency,
+      notation: 'compact',
+      maximumFractionDigits: 1,
+    }).format(n)
+
+  const {
+    open,
+    outstanding,
+    overdue,
+    overdueAmt,
+    pendingApproval,
+    pendingAmt,
+    discountAvailable,
+    agingData,
+    topBalances,
+  } = useMemo(() => {
+    const scoped = entity === 'all' ? invoices : invoices.filter((i) => i.entityId === entity)
+    // Credit notes carry negative amounts, so every sum below nets them in.
+    // Invoices are in document currency — convert to GBP for the group view,
+    // or to the entity's functional currency for the entity view, before summing.
+    const conv = (i: Invoice) =>
+      entity === 'all' ? toGBP(i.amount, i.currency) : convert(i.amount, i.currency, currency)
+
+    const open = scoped.filter((i) => i.status !== 'paid' && i.status !== 'rejected')
+    const outstanding = open.reduce((s, i) => s + conv(i), 0)
+    const overdue = open.filter((i) => daysOverdue(i.dueDate) > 0)
+    const overdueAmt = overdue.reduce((s, i) => s + conv(i), 0)
+    const pendingApproval = scoped.filter((i) => i.approvals.some((a) => a.status === 'pending'))
+    const pendingAmt = pendingApproval.reduce((s, i) => s + conv(i), 0)
+    const discountAvailable = open
+      .filter((i) => i.discount && daysOverdue(i.discount.deadline) <= 0)
+      .reduce(
+        (s, i) =>
+          s +
+          (entity === 'all'
+            ? toGBP(i.discount?.amount ?? 0, i.currency)
+            : convert(i.discount?.amount ?? 0, i.currency, currency)),
+        0,
+      )
+
+    const agingData = (['current', '1-30', '31-60', '61-90', '90+'] as const).map((bucket) => ({
+      bucket: bucket === 'current' ? 'Current' : bucket === '90+' ? '90+ days' : `${bucket} days`,
+      amount: open
+        .filter((i) => agingBucket(i.dueDate) === bucket)
+        .reduce((s, i) => s + conv(i), 0),
+    }))
+
+    const topBalances = open
+      .reduce<Array<{ id: string; total: number }>>((acc, i) => {
+        const e = acc.find((x) => x.id === i.supplierId)
+        if (e) e.total += conv(i)
+        else acc.push({ id: i.supplierId, total: conv(i) })
+        return acc
+      }, [])
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 4)
+
+    return {
+      open,
+      outstanding,
+      overdue,
+      overdueAmt,
+      pendingApproval,
+      pendingAmt,
+      discountAvailable,
+      agingData,
+      topBalances,
+    }
+  }, [entity, currency])
+
+  const insights = [
+    {
+      icon: AlertTriangle,
+      tone: 'danger' as const,
+      title: '2 high-risk anomalies need attention',
+      body: 'Probable duplicate from Tom Becker — TB-0590 ($11,400) mirrors TB-0589, paid Jun 2 — and a bank-account change on Stellar IT Hardware before the $23,150 SIH-5521 payment.',
+      cta: 'Review exceptions',
+      page: 'invoices' as Page,
+    },
+    {
+      icon: Percent,
+      tone: 'accent' as const,
+      title: `${money(discountAvailable)} in early-pay discounts expire today`,
+      body: 'TBR-2088 (TalentBridge, save $588) and SNM-2026-06 (SecureNet, save $168) both hit their 2/10 deadline today, Jun 11. Release payment today to capture both.',
+      cta: 'Open payments',
+      page: 'payments' as Page,
+    },
+    {
+      icon: Clock,
+      tone: 'warn' as const,
+      title: 'Rate violation on RP-2026-013',
+      body: 'Rajan Pillai billed $104.74/hr against the $95.00/hr rate on PO-2026-0007 (+10.3%). Supplier cites out-of-hours work — the PO carries no uplift clause.',
+      cta: 'View approvals',
+      page: 'approvals' as Page,
+    },
+  ]
+
   return (
     <div className="space-y-5 p-6">
       {/* KPI row */}
       <div className="grid grid-cols-2 gap-4 xl:grid-cols-5">
         <Kpi
           label="Outstanding AP"
-          value={fmtCompact(outstanding)}
-          sub={`${open.length} open invoices`}
+          value={compact(outstanding)}
+          sub={`${open.length} open invoices · net of credit notes`}
           icon={Wallet}
         />
         <Kpi
           label="Overdue"
-          value={fmtCompact(overdueAmt)}
+          value={compact(overdueAmt)}
           sub={`${overdue.length} invoices past due`}
           icon={AlertTriangle}
           tone="danger"
@@ -139,7 +211,7 @@ export function Dashboard({ onNavigate }: { onNavigate: (p: Page) => void }) {
         />
         <Kpi
           label="Pending approval"
-          value={fmtCompact(pendingAmt)}
+          value={compact(pendingAmt)}
           sub={`${pendingApproval.length} awaiting action`}
           icon={Clock}
         />
@@ -208,21 +280,28 @@ export function Dashboard({ onNavigate }: { onNavigate: (p: Page) => void }) {
       {/* Charts */}
       <div className="grid gap-5 xl:grid-cols-2">
         <Card>
-          <CardHeader title="AP aging" subtitle="Open balance by days past due" />
+          <CardHeader
+            title="AP aging"
+            subtitle={
+              entity === 'all'
+                ? 'Open balance by days past due — consolidated GBP'
+                : 'Open balance by days past due'
+            }
+          />
           <div className="h-64 p-4" role="img" aria-label="Bar chart of accounts payable aging buckets">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={agingData} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#eef1f4" vertical={false} />
                 <XAxis dataKey="bucket" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
                 <YAxis
-                  tickFormatter={(v) => fmtCompact(v)}
+                  tickFormatter={(v) => compact(Number(v))}
                   tick={{ fontSize: 11, fill: '#64748b' }}
                   axisLine={false}
                   tickLine={false}
                   width={52}
                 />
                 <Tooltip
-                  formatter={(v) => [fmtMoney(Number(v)), 'Open balance']}
+                  formatter={(v) => [money(Number(v)), 'Open balance']}
                   contentStyle={{ borderRadius: 8, border: '1px solid #e4e7eb', fontSize: 12 }}
                 />
                 <Bar dataKey="amount" fill="#1e3a5f" radius={[5, 5, 0, 0]} maxBarSize={56} />
@@ -350,33 +429,24 @@ export function Dashboard({ onNavigate }: { onNavigate: (p: Page) => void }) {
       <Card>
         <CardHeader title="Largest open balances" subtitle="By supplier" />
         <div className="grid gap-3 p-5 pt-2 sm:grid-cols-2 lg:grid-cols-4">
-          {[...open]
-            .reduce<Array<{ id: string; total: number }>>((acc, i) => {
-              const e = acc.find((x) => x.id === i.supplierId)
-              if (e) e.total += i.amount
-              else acc.push({ id: i.supplierId, total: i.amount })
-              return acc
-            }, [])
-            .sort((a, b) => b.total - a.total)
-            .slice(0, 4)
-            .map(({ id, total }) => {
-              const s = supplierById(id)
-              return (
-                <button
-                  key={id}
-                  onClick={() => onNavigate('suppliers')}
-                  className="flex cursor-pointer items-center justify-between rounded-lg border border-line bg-canvas px-4 py-3 text-left transition-colors hover:border-primary/30"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-[13px] font-medium text-ink">{s.name}</p>
-                    <p className="text-[11px] text-ink-faint">{s.category}</p>
-                  </div>
-                  <span className="tabular ml-3 font-mono text-sm font-semibold text-ink">
-                    {fmtCompact(total)}
-                  </span>
-                </button>
-              )
-            })}
+          {topBalances.map(({ id, total }) => {
+            const s = supplierById(id)
+            return (
+              <button
+                key={id}
+                onClick={() => onNavigate('suppliers')}
+                className="flex cursor-pointer items-center justify-between rounded-lg border border-line bg-canvas px-4 py-3 text-left transition-colors hover:border-primary/30"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-[13px] font-medium text-ink">{s.name}</p>
+                  <p className="text-[11px] text-ink-faint">{s.category}</p>
+                </div>
+                <span className="tabular ml-3 font-mono text-sm font-semibold text-ink">
+                  {compact(total)}
+                </span>
+              </button>
+            )
+          })}
         </div>
       </Card>
     </div>

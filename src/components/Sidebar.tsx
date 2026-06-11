@@ -9,21 +9,54 @@ import {
   Building2,
   BarChart3,
   Sparkles,
+  Briefcase,
+  ClipboardCheck,
+  ShieldCheck,
+  Globe,
+  Settings,
 } from 'lucide-react'
 import type { Page } from '../types'
 import { invoices } from '../data'
 import { cls } from '../utils'
 
-const nav: Array<{ id: Page; label: string; icon: typeof LayoutDashboard }> = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'invoices', label: 'Invoices', icon: FileText },
-  { id: 'capture', label: 'Capture', icon: Inbox },
-  { id: 'submit', label: 'Submit invoice', icon: Send },
-  { id: 'pos', label: 'Purchase orders', icon: ClipboardList },
-  { id: 'approvals', label: 'Approvals', icon: CheckSquare },
-  { id: 'payments', label: 'Payments', icon: CreditCard },
-  { id: 'suppliers', label: 'Suppliers', icon: Building2 },
-  { id: 'reports', label: 'Reports', icon: BarChart3 },
+interface NavItem {
+  id: Page
+  label: string
+  icon: typeof LayoutDashboard
+}
+
+const groups: Array<{ header?: string; items: NavItem[] }> = [
+  {
+    items: [{ id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard }],
+  },
+  {
+    header: 'Operations',
+    items: [
+      { id: 'invoices', label: 'Invoices', icon: FileText },
+      { id: 'capture', label: 'Capture', icon: Inbox },
+      { id: 'submit', label: 'Submit invoice', icon: Send },
+      { id: 'pos', label: 'Purchase orders', icon: ClipboardList },
+      { id: 'approvals', label: 'Approvals', icon: CheckSquare },
+      { id: 'payments', label: 'Payments', icon: CreditCard },
+    ],
+  },
+  {
+    header: 'Finance',
+    items: [
+      { id: 'clientpos', label: 'Client POs', icon: Briefcase },
+      { id: 'assurance', label: 'Month-end', icon: ClipboardCheck },
+      { id: 'reports', label: 'Reports', icon: BarChart3 },
+    ],
+  },
+  {
+    header: 'Administration',
+    items: [
+      { id: 'suppliers', label: 'Suppliers', icon: Building2 },
+      { id: 'compliance', label: 'IR35 & compliance', icon: ShieldCheck },
+      { id: 'entities', label: 'Entities', icon: Globe },
+      { id: 'admin', label: 'Admin console', icon: Settings },
+    ],
+  },
 ]
 
 export function Sidebar({
@@ -47,48 +80,61 @@ export function Sidebar({
 
   return (
     <aside className="flex h-screen w-60 shrink-0 flex-col border-r border-line bg-surface">
-      <div className="flex items-center gap-2.5 px-5 py-5">
-        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-          <svg viewBox="0 0 32 32" className="h-5 w-5" aria-hidden="true">
-            <path d="M9 22 16 9l7 13h-4.2L16 16.4 13.2 22H9Z" fill="#fff" />
-          </svg>
-        </span>
+      <div className="flex items-center gap-2.5 px-5 py-4">
+        <img
+          src="/ncons-logo.png"
+          alt="NCONS logo"
+          className="h-9 w-9 shrink-0"
+          width={36}
+          height={36}
+        />
         <div>
-          <span className="block text-[15px] leading-tight font-bold tracking-tight text-ink">
-            Aprio
+          <span className="block text-[15px] leading-tight font-bold tracking-[0.08em] text-ink">
+            NCONS
           </span>
           <span className="block text-[10px] leading-tight font-medium tracking-wide text-ink-faint uppercase">
-            Accounts Payable
+            Supplier Portal
           </span>
         </div>
       </div>
 
-      <nav className="flex-1 space-y-0.5 px-3" aria-label="Primary">
-        {nav.map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            onClick={() => onNavigate(id)}
-            aria-current={page === id ? 'page' : undefined}
-            className={cls(
-              'flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-primary',
-              page === id
-                ? 'bg-primary/8 text-primary'
-                : 'text-ink-soft hover:bg-canvas hover:text-ink',
+      <nav className="flex-1 overflow-y-auto px-3 pb-2" aria-label="Primary">
+        {groups.map((g, gi) => (
+          <div key={gi} className="mb-1.5">
+            {g.header && (
+              <p className="px-3 pt-2 pb-1 text-[10px] font-semibold tracking-wider text-ink-faint uppercase">
+                {g.header}
+              </p>
             )}
-          >
-            <Icon size={17} strokeWidth={2} aria-hidden="true" />
-            <span className="flex-1 text-left">{label}</span>
-            {badges[id] ? (
-              <span
-                className={cls(
-                  'rounded-full px-1.5 py-0.5 text-[10px] leading-none font-semibold',
-                  id === 'invoices' ? 'bg-danger-soft text-danger' : 'bg-warn-soft text-warn',
-                )}
-              >
-                {badges[id]}
-              </span>
-            ) : null}
-          </button>
+            <div className="space-y-0.5">
+              {g.items.map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  onClick={() => onNavigate(id)}
+                  aria-current={page === id ? 'page' : undefined}
+                  className={cls(
+                    'flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-primary',
+                    page === id
+                      ? 'bg-primary/8 text-primary'
+                      : 'text-ink-soft hover:bg-canvas hover:text-ink',
+                  )}
+                >
+                  <Icon size={16} strokeWidth={2} aria-hidden="true" />
+                  <span className="flex-1 text-left">{label}</span>
+                  {badges[id] ? (
+                    <span
+                      className={cls(
+                        'rounded-full px-1.5 py-0.5 text-[10px] leading-none font-semibold',
+                        id === 'invoices' ? 'bg-danger-soft text-danger' : 'bg-warn-soft text-warn',
+                      )}
+                    >
+                      {badges[id]}
+                    </span>
+                  ) : null}
+                </button>
+              ))}
+            </div>
+          </div>
         ))}
       </nav>
 
@@ -106,9 +152,13 @@ export function Sidebar({
           </span>
           <div className="min-w-0">
             <p className="truncate text-xs font-medium text-ink">Sarah Chen</p>
-            <p className="truncate text-[11px] text-ink-faint">AP Manager</p>
+            <p className="truncate text-[11px] text-ink-faint">AP Manager · Admin</p>
           </div>
         </div>
+        <p className="mt-2 px-2 text-[10px] leading-snug text-ink-faint">
+          Build it. Support it. Scale it.
+          <span className="block italic">Powered by intelligence.</span>
+        </p>
       </div>
     </aside>
   )

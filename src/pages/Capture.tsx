@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { UploadCloud, Mail, Rss, FileText, Sparkles, CheckCircle2, Loader2 } from 'lucide-react'
 import { Card, CardHeader, Button, ConfidenceBar } from '../components/ui'
-import { invoices, supplierById } from '../data'
+import { invoices, supplierById, entityById } from '../data'
 import { fmtMoney, fmtDateShort, cls } from '../utils'
+import { validateInvoice, complianceSummary } from '../compliance/rules'
 import type { Invoice } from '../types'
 
 const steps = [
@@ -10,9 +11,19 @@ const steps = [
   'Extracting header fields…',
   'Matching supplier record…',
   'Coding line items to GL…',
+  'Validating country compliance…',
   'Running anomaly checks…',
   'Done — ready for review',
 ]
+
+const verdictPill: Record<
+  ReturnType<typeof complianceSummary>['verdict'],
+  { label: string; cls: string }
+> = {
+  compliant: { label: 'Compliant', cls: 'bg-accent-soft text-accent' },
+  review: { label: 'Needs review', cls: 'bg-warn-soft text-warn' },
+  non_compliant: { label: 'Non-compliant', cls: 'bg-danger-soft text-danger' },
+}
 
 export function Capture({ onOpen }: { onOpen: (inv: Invoice) => void }) {
   const [processing, setProcessing] = useState(false)
@@ -151,6 +162,10 @@ export function Capture({ onOpen }: { onOpen: (inv: Invoice) => void }) {
           {queue.map((inv) => {
             const s = supplierById(inv.supplierId)
             const minConf = Math.min(...inv.extraction.map((e) => e.confidence))
+            const ent = entityById(inv.entityId)
+            const verdict = ent
+              ? complianceSummary(validateInvoice(inv, s, ent)).verdict
+              : undefined
             return (
               <li key={inv.id} className="flex items-center gap-4 py-3">
                 <span className="rounded-lg bg-canvas p-2 text-ink-faint">
@@ -161,12 +176,22 @@ export function Capture({ onOpen }: { onOpen: (inv: Invoice) => void }) {
                     <span className="font-mono">{inv.number}</span> · {s.name}
                   </p>
                   <p className="text-[11px] text-ink-faint">
-                    {fmtMoney(inv.amount)} · received {fmtDateShort(inv.receivedDate)} · via {inv.source}
+                    {fmtMoney(inv.amount, inv.currency)} · received {fmtDateShort(inv.receivedDate)} · via {inv.source}
                   </p>
                 </div>
                 <div className="hidden items-center gap-2 sm:flex">
                   <span className="text-[11px] text-ink-faint">lowest field</span>
                   <ConfidenceBar value={minConf} />
+                  {verdict && (
+                    <span
+                      className={cls(
+                        'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap',
+                        verdictPill[verdict].cls,
+                      )}
+                    >
+                      {verdictPill[verdict].label}
+                    </span>
+                  )}
                 </div>
                 <Button variant="secondary" onClick={() => onOpen(inv)}>
                   Review

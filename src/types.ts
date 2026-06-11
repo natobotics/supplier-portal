@@ -28,6 +28,8 @@ export type ApproverRole = 'AP' | 'HR' | 'Line Manager' | 'Budget Owner' | 'Fina
 export interface Supplier {
   id: string
   name: string
+  entityId: string
+  currency: string
   segment: SupplierSegment
   category: string
   contactName: string
@@ -61,6 +63,9 @@ export interface PurchaseOrder {
   id: string
   number: string
   supplierId: string
+  entityId: string
+  clientPoId?: string
+  ir35?: IR35Info
   title: string
   budgetOwner: string
   costCenter: string
@@ -111,6 +116,11 @@ export interface Invoice {
   id: string
   number: string
   supplierId: string
+  entityId: string
+  docType: 'invoice' | 'credit_note'
+  costType: 'billable' | 'internal'
+  clientPoId?: string
+  linkedInvoiceId?: string
   poId?: string
   issueDate: string
   dueDate: string
@@ -150,6 +160,65 @@ export interface Activity {
   kind: 'ai' | 'user' | 'system'
 }
 
+export interface Entity {
+  id: string
+  name: string
+  country: string
+  currency: string
+  taxRegime: string
+  active: boolean
+}
+
+export interface ClientPO {
+  id: string
+  number: string
+  client: string
+  entityId: string
+  currency: string
+  value: number
+  engagement: string
+  status: 'open' | 'closed'
+}
+
+export interface IR35Info {
+  status: 'inside' | 'outside' | 'not_applicable'
+  route?: 'umbrella' | 'payroll'
+  sdsOnFile: boolean
+  sdsExpiry?: string
+  note?: string
+}
+
+export interface RecurringSchedule {
+  id: string
+  supplierId: string
+  poId?: string
+  description: string
+  amount: number
+  currency: string
+  frequency: 'monthly'
+  nextRun: string
+  active: boolean
+  entityId: string
+}
+
+export interface AuditEvent {
+  id: string
+  ts: string
+  actor: string
+  role: string
+  action: string
+  target: string
+  reason?: string
+  kind: 'override' | 'approval' | 'edit' | 'config' | 'system'
+}
+
+export interface AdminConfig {
+  hrApprover: string
+  ceo: string
+  financeHeads: Record<string, string>
+  lineManagers: string[]
+}
+
 export type Page =
   | 'dashboard'
   | 'invoices'
@@ -159,6 +228,11 @@ export type Page =
   | 'approvals'
   | 'payments'
   | 'suppliers'
+  | 'clientpos'
+  | 'assurance'
+  | 'compliance'
+  | 'entities'
+  | 'admin'
   | 'reports'
 
 // Fixed 4-level approval chain applied to every invoice regardless of amount.
