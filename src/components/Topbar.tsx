@@ -3,7 +3,7 @@ import { Search, Bell, Plus, Building, HelpCircle } from 'lucide-react'
 import { Button, Card } from './ui'
 import { entities, notifications } from '../data'
 import { useEntity } from '../context'
-import { useAuth } from '../lib/auth'
+import { useAuth, canCapture } from '../lib/auth'
 import { PAGE_HELP } from '../help'
 import type { Page } from '../types'
 
@@ -137,7 +137,7 @@ export function Topbar({
             <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-danger" />
           )}
         </button>
-        {!isSupplier && (
+        {canCapture(role) && (
           <Button onClick={onNewInvoice}>
             <Plus size={15} aria-hidden="true" />
             Add invoice

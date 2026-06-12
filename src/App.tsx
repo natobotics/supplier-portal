@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
-import { useAuth } from './lib/auth'
+import { useAuth, DEMO_PERSONAS, ROLE_PAGES } from './lib/auth'
 import { Sidebar } from './components/Sidebar'
 import { Topbar } from './components/Topbar'
 import { Copilot } from './components/Copilot'
@@ -69,10 +69,8 @@ const titles: Record<Page, string> = {
   reports: 'Reports',
 }
 
-const SUPPLIER_PAGES: Page[] = ['submit', 'timesheets', 'statements']
-
 function LoginScreen() {
-  const { signInWithEmail, enterDemo } = useAuth()
+  const { signInWithEmail, enterDemo, liveAuth } = useAuth()
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -98,7 +96,7 @@ function LoginScreen() {
       </p>
 
       <div className="mt-8 w-full max-w-sm rounded-xl border border-line bg-surface p-6">
-        {sent ? (
+        {!liveAuth ? null : sent ? (
           <div className="rounded-lg bg-accent-soft px-4 py-3 text-[13px] text-accent" role="status">
             <p className="font-semibold">Check your inbox</p>
             <p className="mt-0.5">
@@ -132,20 +130,37 @@ function LoginScreen() {
             </button>
           </form>
         )}
-        <div className="my-4 flex items-center gap-3">
-          <span className="h-px flex-1 bg-line" />
-          <span className="text-[11px] text-ink-faint">or</span>
-          <span className="h-px flex-1 bg-line" />
+        {liveAuth && (
+          <div className="my-4 flex items-center gap-3">
+            <span className="h-px flex-1 bg-line" />
+            <span className="text-[11px] text-ink-faint">or explore the demo as…</span>
+            <span className="h-px flex-1 bg-line" />
+          </div>
+        )}
+        {!liveAuth && (
+          <p className="mb-3 text-center text-xs font-medium text-ink-soft">
+            Explore the demo as…
+          </p>
+        )}
+        <div className="grid grid-cols-1 gap-2" role="list" aria-label="Demo personas">
+          {DEMO_PERSONAS.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => enterDemo(p)}
+              className="flex w-full cursor-pointer items-center gap-3 rounded-lg border border-line bg-surface px-3 py-2 text-left transition-colors hover:border-primary/40 hover:bg-canvas"
+            >
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/8 text-[11px] font-bold text-primary">
+                {p.name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()}
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-[13px] font-medium text-ink">
+                  {p.name} <span className="font-normal text-ink-faint">· {p.title}</span>
+                </span>
+                <span className="block truncate text-[11px] text-ink-faint">{p.blurb}</span>
+              </span>
+            </button>
+          ))}
         </div>
-        <button
-          onClick={enterDemo}
-          className="w-full cursor-pointer rounded-lg border border-line bg-surface px-5 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-canvas"
-        >
-          Explore the demo
-        </button>
-        <p className="mt-2 text-center text-[11px] text-ink-faint">
-          Demo mode — Sarah Chen, admin, sample data
-        </p>
       </div>
 
       <p className="mt-6 max-w-sm text-center text-xs leading-relaxed text-ink-faint">
@@ -166,12 +181,14 @@ export default function App() {
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const auth = useAuth()
 
-  // Suppliers only see their own pages.
+  // Every role only sees its own pages.
   useEffect(() => {
-    if (auth.role === 'supplier' && (!SUPPLIER_PAGES.includes(page) || invoice)) {
+    const allowed = ROLE_PAGES[auth.role]
+    if (allowed && !allowed.includes(page)) {
       setInvoice(null)
-      setPage('submit')
+      setPage(allowed[0] as Page)
     }
+    if (auth.role === 'supplier' && invoice) setInvoice(null)
   }, [auth.role, page, invoice])
 
   if (auth.status === 'loading') {

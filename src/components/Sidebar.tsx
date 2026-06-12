@@ -25,7 +25,7 @@ import {
 import type { Page } from '../types'
 import { invoices } from '../data'
 import { cls } from '../utils'
-import { useAuth } from '../lib/auth'
+import { useAuth, ROLE_PAGES } from '../lib/auth'
 
 interface NavItem {
   id: Page
@@ -100,17 +100,13 @@ export function Sidebar({
     invoices: exceptions,
   }
 
-  // Suppliers see only their own portal pages.
-  const visibleGroups: typeof groups =
-    auth.role === 'supplier'
-      ? [
-          {
-            items: groups
-              .flatMap((g) => g.items)
-              .filter((i) => ['submit', 'timesheets', 'statements'].includes(i.id)),
-          },
-        ]
-      : groups
+  // Each role sees only its own pages; groups with nothing left disappear.
+  const allowed = ROLE_PAGES[auth.role]
+  const visibleGroups: typeof groups = allowed
+    ? groups
+        .map((g) => ({ ...g, items: g.items.filter((i) => allowed.includes(i.id)) }))
+        .filter((g) => g.items.length > 0)
+    : groups
 
   return (
     <aside className="flex h-screen w-60 shrink-0 flex-col border-r border-line bg-surface">
@@ -173,7 +169,7 @@ export function Sidebar({
       </nav>
 
       <div className="border-t border-line p-3">
-        {auth.role !== 'supplier' && (
+        {auth.role !== 'supplier' && auth.role !== 'auditor' && (
           <button
             onClick={onOpenCopilot}
             className="flex w-full cursor-pointer items-center gap-3 rounded-lg bg-gradient-to-r from-primary to-secondary px-3 py-2.5 text-sm font-medium text-white transition-opacity duration-150 hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
@@ -196,9 +192,7 @@ export function Sidebar({
               )}
             </p>
             <p className="truncate text-[11px] text-ink-faint">
-              {auth.status === 'authenticated'
-                ? (auth.email ?? (auth.role === 'supplier' ? 'Supplier portal' : 'Internal · Admin'))
-                : 'AP Manager · Admin'}
+              {auth.status === 'authenticated' ? (auth.email ?? auth.title) : auth.title}
             </p>
           </div>
           <button

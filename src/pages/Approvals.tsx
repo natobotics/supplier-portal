@@ -14,6 +14,7 @@ import { invoices, supplierById } from '../data'
 import { fmtMoney, fmtDate, daysOverdue, cls } from '../utils'
 import type { ApprovalStep, ApproverRole, Invoice } from '../types'
 import { APPROVAL_CHAIN, PEOPLE } from '../types'
+import { useAuth, ROLE_CHAIN_TAB } from '../lib/auth'
 
 const ROLES: ApproverRole[] = ['AP', 'HR', 'Line Manager', 'Budget Owner', 'Finance Head', 'CEO']
 
@@ -67,8 +68,12 @@ const step2Routing = [
 ]
 
 export function Approvals({ onOpen }: { onOpen: (inv: Invoice) => void }) {
+  const { role } = useAuth()
   const [decided, setDecided] = useState<Record<string, 'approved' | 'rejected'>>({})
-  const [tab, setTab] = useState<ApproverRole | 'all'>('all')
+  // Land approvers straight in their own queue.
+  const [tab, setTab] = useState<ApproverRole | 'all'>(
+    () => (ROLE_CHAIN_TAB[role] as ApproverRole | undefined) ?? 'all',
+  )
 
   const queue = useMemo(
     () =>
