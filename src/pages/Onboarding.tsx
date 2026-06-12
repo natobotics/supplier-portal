@@ -10,7 +10,9 @@ import {
   XCircle,
 } from 'lucide-react'
 import { Card, CardHeader, Button } from '../components/ui'
-import { onboardingCases, entities, entityById } from '../data'
+import { onboardingCases, entityById } from '../data'
+import { useEntities } from '../lib/api'
+import { useAuth } from '../lib/auth'
 import { useEntity } from '../context'
 import { fmtDate, cls, TODAY } from '../utils'
 import type { OnboardingCase, OnboardingStep, SupplierSegment } from '../types'
@@ -91,7 +93,19 @@ export function Onboarding() {
   const [fEmail, setFEmail] = useState('')
   const [fSegment, setFSegment] = useState<SupplierSegment>('subcontractor')
   const [fEntity, setFEntity] = useState(entity !== 'all' ? entity : 'ent-uk')
-  const [invited, setInvited] = useState<{ name: string; email: string } | null>(null)
+  const [fPhone, setFPhone] = useState('')
+  const [fAddress, setFAddress] = useState('')
+  const [fTaxId, setFTaxId] = useState('')
+  const [fCurrency, setFCurrency] = useState('GBP')
+  const [fTerms, setFTerms] = useState('Net 30')
+  const [fMethod, setFMethod] = useState('ACH')
+  const [inviteBusy, setInviteBusy] = useState(false)
+  const [inviteError, setInviteError] = useState<string | null>(null)
+  const [invited, setInvited] = useState<{ name: string; email: string; live: boolean } | null>(
+    null,
+  )
+  const auth = useAuth()
+  const allEntities = useEntities()
 
   const visible = entity === 'all' ? cases : cases.filter((c) => c.entityId === entity)
   const active = visible.filter((c) => doneCount(c) < TOTAL_STEPS)
@@ -119,9 +133,18 @@ export function Onboarding() {
   const canInvite =
     fName.trim().length > 0 && fContact.trim().length > 0 && fEmail.trim().length > 0
 
-  const sendInvite = () => {
-    const name = fName.trim()
-    const email = fEmail.trim()
+  const resetForm = () => {
+    setShowInvite(false)
+    setFName('')
+    setFContact('')
+    setFEmail('')
+    setFSegment('subcontractor')
+    setFPhone('')
+    setFAddress('')
+    setFTaxId('')
+  }
+
+  const addLocalCase = (name: string, email: string) => {
     const newCase: OnboardingCase = {
       id: `onb-${Date.now()}`,
       name,
@@ -129,16 +152,67 @@ export function Onboarding() {
       email,
       segment: fSegment,
       entityId: fEntity,
-      started: '2026-06-11',
+      started: '2026-06-12',
       steps: freshSteps(),
     }
     setCases((cs) => [newCase, ...cs])
-    setInvited({ name, email })
-    setShowInvite(false)
-    setFName('')
-    setFContact('')
-    setFEmail('')
-    setFSegment('subcontractor')
+  }
+
+  const sendInvite = async () => {
+    const name = fName.trim()
+    const email = fEmail.trim()
+    setInviteError(null)
+
+    // Live mode: create the supplier profile AND the portal login via the
+    // service function — the supplier receives a magic-link invite email.
+    if (auth.status === 'authenticated' && auth.accessToken) {
+      setInviteBusy(true)
+      try {
+        const res = await fetch('/.netlify/functions/invite-supplier', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${auth.accessToken}`,
+          },
+          body: JSON.stringify({
+            name,
+            segment: fSegment,
+            category: segmentLabels[fSegment],
+            contact_name: fContact.trim(),
+            email,
+            phone: fPhone.trim() || null,
+            address: fAddress.trim() || null,
+            tax_id: fTaxId.trim() || null,
+            currency: fCurrency,
+            entity_id: fEntity,
+            payment_terms: fTerms,
+            payment_method: fMethod,
+          }),
+        })
+        if (res.ok || res.status === 207) {
+          const data = await res.json()
+          if (data.login_created === false) {
+            setInviteError(data.error ?? 'Profile created but the invite email failed — retry.')
+          } else {
+            addLocalCase(name, email)
+            setInvited({ name, email, live: true })
+            resetForm()
+          }
+        } else {
+          setInviteError(await res.text())
+        }
+      } catch {
+        setInviteError('Could not reach the onboarding service — try again.')
+      } finally {
+        setInviteBusy(false)
+      }
+      return
+    }
+
+    // Demo mode: local only.
+    addLocalCase(name, email)
+    setInvited({ name, email, live: false })
+    resetForm()
   }
 
   return (
@@ -160,8 +234,9 @@ export function Onboarding() {
       {invited && (
         <div className="flex items-center gap-2 rounded-xl bg-accent-soft px-4 py-3 text-[13px] font-medium text-accent">
           <CheckCircle2 size={15} aria-hidden="true" />
-          Invite sent to {invited.email} — {invited.name} added to the pipeline with details
-          pre-filled.
+          {invited.live
+            ? `Profile created — sign-in invitation emailed to ${invited.email}. ${invited.name} sees only their own portal: submit invoices, timesheets and statements.`
+            : `Profile created for ${invited.name} (demo) — in production this emails ${invited.email} a sign-in invitation.`}
         </div>
       )}
 
@@ -222,24 +297,79 @@ export function Onboarding() {
                 <span className="mb-1 block text-xs font-medium text-ink-soft">Entity</span>
                 <select
                   value={fEntity}
-                  onChange={(e) => setFEntity(e.target.value)}
+                  onChange={(e) => {
+                    setFEntity(e.target.value)
+                    const ccy = allEntities.find((x) => x.id === e.target.value)?.currency
+                    if (ccy) setFCurrency(ccy)
+                  }}
                   className={cls(inputCls, 'cursor-pointer')}
                 >
-                  {entities.map((e) => (
-                    <option key={e.id} value={e.id}>
-                      {e.name}
-                    </option>
+                  {allEntities
+                    .filter((e) => e.active)
+                    .map((e) => (
+                      <option key={e.id} value={e.id}>
+                        {e.name}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-ink-soft">Phone</span>
+                <input type="tel" value={fPhone} onChange={(e) => setFPhone(e.target.value)} placeholder="+44 20 …" className={inputCls} />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-ink-soft">Tax / VAT ID</span>
+                <input type="text" value={fTaxId} onChange={(e) => setFTaxId(e.target.value)} placeholder="GB 123 4567 89" className={inputCls} />
+              </label>
+              <label className="block sm:col-span-2">
+                <span className="mb-1 block text-xs font-medium text-ink-soft">Address</span>
+                <textarea value={fAddress} onChange={(e) => setFAddress(e.target.value)} rows={2} placeholder="Registered address" className={inputCls} />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-ink-soft">Billing currency</span>
+                <select value={fCurrency} onChange={(e) => setFCurrency(e.target.value)} className={cls(inputCls, 'cursor-pointer')}>
+                  {['GBP', 'USD', 'EUR', 'PLN', 'AED', 'INR', 'SGD', 'SEK'].map((c) => (
+                    <option key={c}>{c}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-ink-soft">Payment terms</span>
+                <select value={fTerms} onChange={(e) => setFTerms(e.target.value)} className={cls(inputCls, 'cursor-pointer')}>
+                  {['Net 15', 'Net 30', 'Net 45', 'Due on receipt'].map((t) => (
+                    <option key={t}>{t}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-ink-soft">Payment method</span>
+                <select value={fMethod} onChange={(e) => setFMethod(e.target.value)} className={cls(inputCls, 'cursor-pointer')}>
+                  {['ACH', 'Wire', 'Card', 'Check'].map((m) => (
+                    <option key={m}>{m}</option>
                   ))}
                 </select>
               </label>
             </div>
-            <div className="flex items-center justify-end gap-3 border-t border-line pt-4">
-              <Button variant="ghost" onClick={() => setShowInvite(false)}>
-                Cancel
-              </Button>
-              <Button disabled={!canInvite} onClick={sendInvite}>
-                <UserPlus size={14} aria-hidden="true" /> Send invite
-              </Button>
+            {inviteError && (
+              <p className="rounded-lg bg-danger-soft px-3 py-2 text-xs text-danger" role="alert">
+                {inviteError}
+              </p>
+            )}
+            <div className="flex items-center justify-between gap-3 border-t border-line pt-4">
+              <p className="text-[11px] text-ink-faint">
+                {auth.status === 'authenticated'
+                  ? 'Creates the supplier profile and emails a portal sign-in invitation.'
+                  : 'Demo mode — in production this also creates the portal login.'}
+              </p>
+              <div className="flex gap-3">
+                <Button variant="ghost" onClick={() => setShowInvite(false)}>
+                  Cancel
+                </Button>
+                <Button disabled={!canInvite || inviteBusy} onClick={() => void sendInvite()}>
+                  <UserPlus size={14} aria-hidden="true" />{' '}
+                  {inviteBusy ? 'Creating…' : 'Create profile & invite'}
+                </Button>
+              </div>
             </div>
           </div>
         </Card>

@@ -3,6 +3,7 @@ import { Search, Bell, Plus, Building, HelpCircle } from 'lucide-react'
 import { Button, Card } from './ui'
 import { entities, notifications } from '../data'
 import { useEntity } from '../context'
+import { useAuth } from '../lib/auth'
 import { PAGE_HELP } from '../help'
 import type { Page } from '../types'
 
@@ -18,6 +19,8 @@ export function Topbar({
   onOpenNotifications: () => void
 }) {
   const { entity, setEntity } = useEntity()
+  const { role } = useAuth()
+  const isSupplier = role === 'supplier'
   const unreadCount = notifications.filter((n) => !n.read).length
 
   const [helpOpen, setHelpOpen] = useState(false)
@@ -85,6 +88,7 @@ export function Topbar({
         )}
       </div>
       <div className="flex items-center gap-3">
+        {!isSupplier && (
         <label className="relative hidden xl:block">
           <Search
             size={15}
@@ -98,6 +102,8 @@ export function Topbar({
             className="w-64 rounded-lg border border-line bg-canvas py-2 pr-3 pl-9 text-sm text-ink placeholder:text-ink-faint focus:border-primary focus:outline-none"
           />
         </label>
+        )}
+        {!isSupplier && (
         <label className="relative hidden md:block">
           <Building
             size={14}
@@ -120,6 +126,7 @@ export function Topbar({
               ))}
           </select>
         </label>
+        )}
         <button
           onClick={onOpenNotifications}
           className="relative cursor-pointer rounded-lg p-2 text-ink-soft transition-colors hover:bg-canvas hover:text-ink focus-visible:outline-2 focus-visible:outline-primary"
@@ -130,10 +137,12 @@ export function Topbar({
             <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-danger" />
           )}
         </button>
-        <Button onClick={onNewInvoice}>
-          <Plus size={15} aria-hidden="true" />
-          Add invoice
-        </Button>
+        {!isSupplier && (
+          <Button onClick={onNewInvoice}>
+            <Plus size={15} aria-hidden="true" />
+            Add invoice
+          </Button>
+        )}
       </div>
     </header>
   )

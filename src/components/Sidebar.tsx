@@ -25,6 +25,7 @@ import {
 import type { Page } from '../types'
 import { invoices } from '../data'
 import { cls } from '../utils'
+import { useAuth } from '../lib/auth'
 
 interface NavItem {
   id: Page
@@ -88,6 +89,7 @@ export function Sidebar({
   onOpenCopilot: () => void
   onSignOut: () => void
 }) {
+  const auth = useAuth()
   const pendingApprovals = invoices.filter((i) =>
     i.approvals.some((a) => a.status === 'pending'),
   ).length
@@ -97,6 +99,18 @@ export function Sidebar({
     approvals: pendingApprovals,
     invoices: exceptions,
   }
+
+  // Suppliers see only their own portal pages.
+  const visibleGroups: typeof groups =
+    auth.role === 'supplier'
+      ? [
+          {
+            items: groups
+              .flatMap((g) => g.items)
+              .filter((i) => ['submit', 'timesheets', 'statements'].includes(i.id)),
+          },
+        ]
+      : groups
 
   return (
     <aside className="flex h-screen w-60 shrink-0 flex-col border-r border-line bg-surface">
@@ -119,7 +133,7 @@ export function Sidebar({
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 pb-2" aria-label="Primary">
-        {groups.map((g, gi) => (
+        {visibleGroups.map((g, gi) => (
           <div key={gi} className="mb-1.5">
             {g.header && (
               <p className="px-3 pt-2 pb-1 text-[10px] font-semibold tracking-wider text-ink-faint uppercase">
@@ -159,20 +173,33 @@ export function Sidebar({
       </nav>
 
       <div className="border-t border-line p-3">
-        <button
-          onClick={onOpenCopilot}
-          className="flex w-full cursor-pointer items-center gap-3 rounded-lg bg-gradient-to-r from-primary to-secondary px-3 py-2.5 text-sm font-medium text-white transition-opacity duration-150 hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-        >
-          <Sparkles size={16} aria-hidden="true" />
-          AP Copilot
-        </button>
+        {auth.role !== 'supplier' && (
+          <button
+            onClick={onOpenCopilot}
+            className="flex w-full cursor-pointer items-center gap-3 rounded-lg bg-gradient-to-r from-primary to-secondary px-3 py-2.5 text-sm font-medium text-white transition-opacity duration-150 hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            <Sparkles size={16} aria-hidden="true" />
+            AP Copilot
+          </button>
+        )}
         <div className="mt-3 flex items-center gap-2.5 px-2 pb-1">
-          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-accent-soft text-[11px] font-semibold text-accent">
-            SC
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent-soft text-[11px] font-semibold text-accent">
+            {auth.name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()}
           </span>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-medium text-ink">Sarah Chen</p>
-            <p className="truncate text-[11px] text-ink-faint">AP Manager · Admin</p>
+            <p className="flex items-center gap-1.5 truncate text-xs font-medium text-ink">
+              {auth.name}
+              {auth.status === 'demo' && (
+                <span className="rounded-full border border-line bg-canvas px-1.5 py-0.5 text-[9px] font-medium text-ink-faint">
+                  Demo
+                </span>
+              )}
+            </p>
+            <p className="truncate text-[11px] text-ink-faint">
+              {auth.status === 'authenticated'
+                ? (auth.email ?? (auth.role === 'supplier' ? 'Supplier portal' : 'Internal · Admin'))
+                : 'AP Manager · Admin'}
+            </p>
           </div>
           <button
             onClick={onSignOut}
