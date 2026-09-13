@@ -16,6 +16,7 @@ const InvoiceDetail = lazy(() => import('./pages/InvoiceDetail').then((m) => ({ 
 const Capture = lazy(() => import('./pages/Capture').then((m) => ({ default: m.Capture })))
 const SubmitInvoice = lazy(() => import('./pages/SubmitInvoice').then((m) => ({ default: m.SubmitInvoice })))
 const POs = lazy(() => import('./pages/POs').then((m) => ({ default: m.POs })))
+const DocGen = lazy(() => import('./pages/DocGen').then((m) => ({ default: m.DocGen })))
 const Approvals = lazy(() => import('./pages/Approvals').then((m) => ({ default: m.Approvals })))
 const Payments = lazy(() => import('./pages/Payments').then((m) => ({ default: m.Payments })))
 const Suppliers = lazy(() => import('./pages/Suppliers').then((m) => ({ default: m.Suppliers })))
@@ -55,6 +56,7 @@ const titles: Record<Page, string> = {
   statements: 'Supplier statements',
   onboarding: 'Supplier onboarding',
   pos: 'Purchase orders',
+  docgen: 'PO & SOW generator',
   approvals: 'Approvals',
   payments: 'Payments',
   suppliers: 'Suppliers',
@@ -255,6 +257,8 @@ export default function App() {
             <Onboarding />
           ) : page === 'pos' ? (
             <POs />
+          ) : page === 'docgen' ? (
+            <DocGen />
           ) : page === 'approvals' ? (
             <Approvals onOpen={openInvoice} />
           ) : page === 'payments' ? (

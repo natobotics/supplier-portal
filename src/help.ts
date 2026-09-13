@@ -63,6 +63,14 @@ export const PAGE_HELP: Record<Page, PageHelp> = {
       'Invite new suppliers from here',
     ],
   },
+  docgen: {
+    what: 'Draft client-ready POs and SOWs in minutes.',
+    points: [
+      'Templates mirror N Consulting’s real work-order and PO formats',
+      'Service presets pre-fill scope, deliverables, dependencies and assumptions',
+      'Live preview prints to PDF with the correct entity letterhead and legal clauses',
+    ],
+  },
   pos: {
     what: 'Purchase orders and work orders.',
     points: [

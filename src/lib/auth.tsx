@@ -52,11 +52,11 @@ export const DEMO_PERSONAS: DemoPersona[] = [
 // Pages each role can reach. null = everything.
 export const ROLE_PAGES: Record<AuthRole, string[] | null> = {
   admin: null,
-  ap_clerk: ['dashboard', 'invoices', 'capture', 'suppliers', 'onboarding', 'contracts'],
+  ap_clerk: ['dashboard', 'invoices', 'capture', 'suppliers', 'onboarding', 'contracts', 'docgen'],
   hr: ['dashboard', 'invoices', 'approvals', 'timesheets', 'onboarding', 'compliance'],
   line_manager: ['dashboard', 'invoices', 'approvals', 'timesheets', 'pos'],
-  budget_owner: ['dashboard', 'invoices', 'approvals', 'pos', 'budgets', 'clientpos'],
-  finance_head: ['dashboard', 'invoices', 'approvals', 'payments', 'budgets', 'assurance', 'clientpos', 'reports', 'entities'],
+  budget_owner: ['dashboard', 'invoices', 'approvals', 'pos', 'docgen', 'budgets', 'clientpos'],
+  finance_head: ['dashboard', 'invoices', 'approvals', 'payments', 'budgets', 'assurance', 'clientpos', 'reports', 'entities', 'docgen'],
   ceo: ['dashboard', 'approvals', 'budgets', 'assurance', 'reports'],
   auditor: ['dashboard', 'invoices', 'assurance', 'compliance', 'reports', 'admin'],
   supplier: ['submit', 'timesheets', 'statements'],

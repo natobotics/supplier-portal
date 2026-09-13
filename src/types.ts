@@ -323,6 +323,7 @@ export type Page =
   | 'statements'
   | 'onboarding'
   | 'pos'
+  | 'docgen'
   | 'approvals'
   | 'payments'
   | 'suppliers'

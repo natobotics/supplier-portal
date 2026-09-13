@@ -43,6 +43,7 @@ const groups: Array<{ header?: string; items: NavItem[] }> = [
       { id: 'invoices', label: 'Invoices', icon: FileText },
       { id: 'capture', label: 'Capture', icon: Inbox },
       { id: 'pos', label: 'Purchase orders', icon: ClipboardList },
+      { id: 'docgen', label: 'PO & SOW generator', icon: FileSignature },
       { id: 'approvals', label: 'Approvals', icon: CheckSquare },
       { id: 'payments', label: 'Payments', icon: CreditCard },
     ],
