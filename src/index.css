@@ -22,6 +22,29 @@
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 }
 
+/* Dark theme — every component reads the tokens, so overriding them here
+   restyles the whole portal. Toggled via the .dark class on <html>. */
+.dark {
+  --color-primary: #2d5486;
+  --color-primary-hover: #38659e;
+  --color-secondary: #5b9bf8;
+  --color-accent: #34d399;
+  --color-accent-soft: #0d3328;
+  --color-surface: #151f2c;
+  --color-canvas: #0c141e;
+  --color-ink: #e7ecf3;
+  --color-ink-soft: #a6b1c2;
+  --color-ink-faint: #64748b;
+  --color-line: #253243;
+  --color-danger: #f47272;
+  --color-danger-soft: #3b1717;
+  --color-warn: #eab04c;
+  --color-warn-soft: #382a10;
+  --color-info-soft: #132a45;
+
+  color-scheme: dark;
+}
+
 html {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;

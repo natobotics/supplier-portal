@@ -124,11 +124,11 @@ export function Reports() {
           <div className="h-72 p-4" role="img" aria-label="Horizontal bar chart of year-to-date spend by category">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={spendByCategory} layout="vertical" margin={{ top: 4, right: 16, left: 8, bottom: 4 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#eef1f4" horizontal={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-line)" horizontal={false} />
                 <XAxis
                   type="number"
                   tickFormatter={(v) => fmtCompact(v)}
-                  tick={{ fontSize: 11, fill: '#64748b' }}
+                  tick={{ fontSize: 11, fill: 'var(--color-ink-faint)' }}
                   axisLine={false}
                   tickLine={false}
                 />
@@ -136,15 +136,15 @@ export function Reports() {
                   type="category"
                   dataKey="category"
                   width={130}
-                  tick={{ fontSize: 11, fill: '#475569' }}
+                  tick={{ fontSize: 11, fill: 'var(--color-ink-soft)' }}
                   axisLine={false}
                   tickLine={false}
                 />
                 <Tooltip
                   formatter={(v) => [fmtMoney(Number(v)), 'YTD spend']}
-                  contentStyle={{ borderRadius: 8, border: '1px solid #e4e7eb', fontSize: 12 }}
+                  contentStyle={{ borderRadius: 8, border: '1px solid var(--color-line)', backgroundColor: 'var(--color-surface)', color: 'var(--color-ink)', fontSize: 12 }}
                 />
-                <Bar dataKey="spend" fill="#2563eb" radius={[0, 4, 4, 0]} maxBarSize={18} />
+                <Bar dataKey="spend" fill="var(--color-secondary)" radius={[0, 4, 4, 0]} maxBarSize={18} />
               </BarChart>
             </ResponsiveContainer>
           </div>

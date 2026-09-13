@@ -315,20 +315,20 @@ export function Dashboard({ onNavigate }: { onNavigate: (p: Page) => void }) {
           <div className="h-64 p-4" role="img" aria-label="Bar chart of accounts payable aging buckets">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={agingData} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#eef1f4" vertical={false} />
-                <XAxis dataKey="bucket" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-line)" vertical={false} />
+                <XAxis dataKey="bucket" tick={{ fontSize: 11, fill: 'var(--color-ink-faint)' }} axisLine={false} tickLine={false} />
                 <YAxis
                   tickFormatter={(v) => compact(Number(v))}
-                  tick={{ fontSize: 11, fill: '#64748b' }}
+                  tick={{ fontSize: 11, fill: 'var(--color-ink-faint)' }}
                   axisLine={false}
                   tickLine={false}
                   width={52}
                 />
                 <Tooltip
                   formatter={(v) => [money(Number(v)), 'Open balance']}
-                  contentStyle={{ borderRadius: 8, border: '1px solid #e4e7eb', fontSize: 12 }}
+                  contentStyle={{ borderRadius: 8, border: '1px solid var(--color-line)', backgroundColor: 'var(--color-surface)', color: 'var(--color-ink)', fontSize: 12 }}
                 />
-                <Bar dataKey="amount" fill="#1e3a5f" radius={[5, 5, 0, 0]} maxBarSize={56} />
+                <Bar dataKey="amount" fill="var(--color-primary)" radius={[5, 5, 0, 0]} maxBarSize={56} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -339,11 +339,11 @@ export function Dashboard({ onNavigate }: { onNavigate: (p: Page) => void }) {
           <div className="h-64 p-4" role="img" aria-label="Combined chart of scheduled and projected cash outflow over the next six weeks">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={cashForecast} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#eef1f4" vertical={false} />
-                <XAxis dataKey="week" tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-line)" vertical={false} />
+                <XAxis dataKey="week" tick={{ fontSize: 10, fill: 'var(--color-ink-faint)' }} axisLine={false} tickLine={false} />
                 <YAxis
                   tickFormatter={(v) => fmtCompact(v)}
-                  tick={{ fontSize: 11, fill: '#64748b' }}
+                  tick={{ fontSize: 11, fill: 'var(--color-ink-faint)' }}
                   axisLine={false}
                   tickLine={false}
                   width={52}
@@ -353,14 +353,14 @@ export function Dashboard({ onNavigate }: { onNavigate: (p: Page) => void }) {
                     fmtMoney(Number(v)),
                     name === 'scheduled' ? 'Scheduled' : 'Projected',
                   ]}
-                  contentStyle={{ borderRadius: 8, border: '1px solid #e4e7eb', fontSize: 12 }}
+                  contentStyle={{ borderRadius: 8, border: '1px solid var(--color-line)', backgroundColor: 'var(--color-surface)', color: 'var(--color-ink)', fontSize: 12 }}
                 />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
-                <Bar dataKey="scheduled" name="Scheduled" fill="#1e3a5f" radius={[5, 5, 0, 0]} maxBarSize={40} />
+                <Bar dataKey="scheduled" name="Scheduled" fill="var(--color-primary)" radius={[5, 5, 0, 0]} maxBarSize={40} />
                 <Line
                   dataKey="projected"
                   name="Projected"
-                  stroke="#2563eb"
+                  stroke="var(--color-secondary)"
                   strokeWidth={2}
                   strokeDasharray="5 4"
                   dot={{ r: 3 }}
@@ -378,27 +378,27 @@ export function Dashboard({ onNavigate }: { onNavigate: (p: Page) => void }) {
           <div className="h-56 p-4" role="img" aria-label="Chart of touchless invoice processing rate by month">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={touchlessData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#eef1f4" vertical={false} />
-                <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-line)" vertical={false} />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--color-ink-faint)' }} axisLine={false} tickLine={false} />
                 <YAxis
                   yAxisId="rate"
                   domain={[0, 100]}
                   tickFormatter={(v) => `${v}%`}
-                  tick={{ fontSize: 11, fill: '#64748b' }}
+                  tick={{ fontSize: 11, fill: 'var(--color-ink-faint)' }}
                   axisLine={false}
                   tickLine={false}
                   width={40}
                 />
                 <Tooltip
                   formatter={(v, name) => (name === 'rate' ? [`${v}%`, 'Touchless rate'] : [v, name])}
-                  contentStyle={{ borderRadius: 8, border: '1px solid #e4e7eb', fontSize: 12 }}
+                  contentStyle={{ borderRadius: 8, border: '1px solid var(--color-line)', backgroundColor: 'var(--color-surface)', color: 'var(--color-ink)', fontSize: 12 }}
                 />
                 <Line
                   yAxisId="rate"
                   dataKey="rate"
-                  stroke="#059669"
+                  stroke="var(--color-accent)"
                   strokeWidth={2.5}
-                  dot={{ r: 3, fill: '#059669' }}
+                  dot={{ r: 3, fill: 'var(--color-accent)' }}
                 />
               </ComposedChart>
             </ResponsiveContainer>

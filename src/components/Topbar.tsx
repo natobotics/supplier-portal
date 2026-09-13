@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Search, Bell, Plus, Building, HelpCircle } from 'lucide-react'
+import { Search, Bell, Plus, Building, HelpCircle, Sun, Moon } from 'lucide-react'
+import { useTheme } from '../lib/theme'
 import { Button, Card } from './ui'
 import { entities, notifications } from '../data'
 import { useEntity } from '../context'
@@ -19,6 +20,7 @@ export function Topbar({
   onOpenNotifications: () => void
 }) {
   const { entity, setEntity } = useEntity()
+  const { dark, toggle } = useTheme()
   const { role } = useAuth()
   const isSupplier = role === 'supplier'
   const unreadCount = notifications.filter((n) => !n.read).length
@@ -127,6 +129,14 @@ export function Topbar({
           </select>
         </label>
         )}
+        <button
+          onClick={toggle}
+          aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+          title={dark ? 'Light mode' : 'Dark mode'}
+          className="cursor-pointer rounded-lg p-2 text-ink-soft transition-colors hover:bg-canvas hover:text-ink focus-visible:outline-2 focus-visible:outline-primary"
+        >
+          {dark ? <Sun size={18} aria-hidden="true" /> : <Moon size={18} aria-hidden="true" />}
+        </button>
         <button
           onClick={onOpenNotifications}
           className="relative cursor-pointer rounded-lg p-2 text-ink-soft transition-colors hover:bg-canvas hover:text-ink focus-visible:outline-2 focus-visible:outline-primary"
